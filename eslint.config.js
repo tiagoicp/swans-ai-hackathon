@@ -7,7 +7,12 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   {
     // Generated / build artifacts — never lint these.
-    ignores: ["dist/", "node_modules/", ".wrangler/", "env.d.ts"]
+    ignores: [
+      "dist/",
+      "node_modules/",
+      ".wrangler/",
+      "worker-configuration.d.ts"
+    ]
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
