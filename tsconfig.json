@@ -1,6 +1,9 @@
 {
   "extends": "agents/tsconfig",
   "compilerOptions": {
-    // add your overrides here
+    // Replaces the `agents/tsconfig` preset's array wholesale, so `node` and
+    // `vite/client` have to be re-listed. Runtime types now come from the
+    // wrangler-generated file instead of `@cloudflare/workers-types`.
+    "types": ["node", "vite/client", "./worker-configuration.d.ts"]
   }
 }

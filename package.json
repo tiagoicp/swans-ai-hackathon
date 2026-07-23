@@ -14,10 +14,11 @@
     "dev": "vite dev",
     "start": "vite dev",
     "deploy": "vite build && wrangler deploy",
-    "types": "wrangler types env.d.ts --include-runtime false",
+    "types": "wrangler types",
+    "types:check": "wrangler types --check",
     "format": "prettier --write .",
     "lint": "eslint .",
-    "check": "prettier --check . && eslint . && tsc"
+    "check": "npm run types:check && prettier --check . && eslint . && tsc"
   },
   "dependencies": {
     "@cloudflare/ai-chat": "^0.10.0",
@@ -35,7 +36,6 @@
   "devDependencies": {
     "@babel/plugin-proposal-decorators": "^8.0.2",
     "@cloudflare/vite-plugin": "1.47.0",
-    "@cloudflare/workers-types": "^5.20260723.1",
     "@eslint/js": "^9.39.5",
     "@rolldown/plugin-babel": "^0.2.3",
     "@tailwindcss/vite": "^4.3.1",
