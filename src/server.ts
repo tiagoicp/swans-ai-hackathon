@@ -103,8 +103,10 @@ export class ChatAgent extends AIChatAgent<Env> {
             "/": (x, y) => x / y,
             "%": (x, y) => x % y
           };
-          if (operator === "/" && b === 0) {
-            return { error: "Division by zero" };
+          if ((operator === "/" || operator === "%") && b === 0) {
+            return {
+              error: operator === "/" ? "Division by zero" : "Modulo by zero"
+            };
           }
           return {
             expression: `${a} ${operator} ${b}`,
