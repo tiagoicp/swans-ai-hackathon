@@ -9,7 +9,7 @@ import {
   Button,
   Empty,
   InputArea,
-  Surface,
+  LayerCard,
   Switch,
   Text
 } from "@cloudflare/kumo";
@@ -112,7 +112,7 @@ function ToolPartView({
   if (part.state === "output-available") {
     return (
       <div className="flex justify-start">
-        <Surface className="max-w-[85%] px-4 py-2.5 rounded-xl ring ring-kumo-line">
+        <LayerCard className="max-w-[85%] px-4 py-2.5 rounded-xl ring ring-kumo-line">
           <div className="flex items-center gap-2 mb-1">
             <GearIcon size={14} className="text-kumo-inactive" />
             <Text size="xs" variant="secondary" bold>
@@ -125,7 +125,7 @@ function ToolPartView({
               {JSON.stringify(part.output, null, 2)}
             </Text>
           </div>
-        </Surface>
+        </LayerCard>
       </div>
     );
   }
@@ -135,7 +135,7 @@ function ToolPartView({
     const approvalId = (part.approval as { id?: string })?.id;
     return (
       <div className="flex justify-start">
-        <Surface className="max-w-[85%] px-4 py-3 rounded-xl ring-2 ring-kumo-warning">
+        <LayerCard className="max-w-[85%] px-4 py-3 rounded-xl ring-2 ring-kumo-warning">
           <div className="flex items-center gap-2 mb-2">
             <GearIcon size={14} className="text-kumo-warning" />
             <Text size="sm" bold>
@@ -173,7 +173,7 @@ function ToolPartView({
               Reject
             </Button>
           </div>
-        </Surface>
+        </LayerCard>
       </div>
     );
   }
@@ -186,7 +186,7 @@ function ToolPartView({
   ) {
     return (
       <div className="flex justify-start">
-        <Surface className="max-w-[85%] px-4 py-2.5 rounded-xl ring ring-kumo-line">
+        <LayerCard className="max-w-[85%] px-4 py-2.5 rounded-xl ring ring-kumo-line">
           <div className="flex items-center gap-2">
             <XCircleIcon size={14} className="text-kumo-danger" />
             <Text size="xs" variant="secondary" bold>
@@ -194,7 +194,7 @@ function ToolPartView({
             </Text>
             <Badge variant="secondary">Rejected</Badge>
           </div>
-        </Surface>
+        </LayerCard>
       </div>
     );
   }
@@ -203,14 +203,14 @@ function ToolPartView({
   if (part.state === "input-available" || part.state === "input-streaming") {
     return (
       <div className="flex justify-start">
-        <Surface className="max-w-[85%] px-4 py-2.5 rounded-xl ring ring-kumo-line">
+        <LayerCard className="max-w-[85%] px-4 py-2.5 rounded-xl ring ring-kumo-line">
           <div className="flex items-center gap-2">
             <GearIcon size={14} className="text-kumo-inactive animate-spin" />
             <Text size="xs" variant="secondary">
               Running {toolName}...
             </Text>
           </div>
-        </Surface>
+        </LayerCard>
       </div>
     );
   }
@@ -498,7 +498,7 @@ function Chat() {
               {/* MCP Dropdown Panel */}
               {showMcpPanel && (
                 <div className="absolute right-0 top-full mt-2 w-96 z-50">
-                  <Surface className="rounded-xl ring ring-kumo-line shadow-lg p-4 space-y-4">
+                  <LayerCard className="rounded-xl ring ring-kumo-line shadow-lg p-4 space-y-4">
                     {/* Panel Header */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -643,7 +643,7 @@ function Chat() {
                         </div>
                       </div>
                     )}
-                  </Surface>
+                  </LayerCard>
                 </div>
               )}
             </div>
