@@ -1,8 +1,8 @@
 {
-  "name": "agent-starter",
+  "name": "swans-ai",
   "version": "1.0.0",
   "private": true,
-  "description": "Starter template for building AI chat agents on Cloudflare",
+  "description": "AI chat agent on Cloudflare — Swans AI Applied Hackathon, Lisbon 2026",
   "keywords": [
     "agents",
     "ai",
@@ -14,10 +14,11 @@
     "dev": "vite dev",
     "start": "vite dev",
     "deploy": "vite build && wrangler deploy",
-    "types": "wrangler types env.d.ts --include-runtime false",
+    "types": "wrangler types",
+    "types:check": "wrangler types --check",
     "format": "prettier --write .",
     "lint": "eslint .",
-    "check": "prettier --check . && eslint . && tsc"
+    "check": "npm run types:check && prettier --check . && eslint . && tsc"
   },
   "dependencies": {
     "@cloudflare/ai-chat": "^0.10.0",
@@ -25,9 +26,10 @@
     "@phosphor-icons/react": "^2.1.10",
     "@streamdown/code": "^1.1.1",
     "agents": "^0.19.0",
-    "ai": "^7.0.36",
+    "ai": "^7.0.37",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.1",
     "streamdown": "^2.5.0",
     "workers-ai-provider": "^4.0.0",
     "zod": "^4.4.3"
@@ -35,7 +37,6 @@
   "devDependencies": {
     "@babel/plugin-proposal-decorators": "^8.0.2",
     "@cloudflare/vite-plugin": "1.47.0",
-    "@cloudflare/workers-types": "^5.20260723.1",
     "@eslint/js": "^9.39.5",
     "@rolldown/plugin-babel": "^0.2.3",
     "@tailwindcss/vite": "^4.3.1",

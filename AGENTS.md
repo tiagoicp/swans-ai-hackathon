@@ -11,13 +11,16 @@ For all limits and quotas, retrieve from the product's `/platform/limits/` page.
 
 ## Commands
 
-| Command               | Purpose                   |
-| --------------------- | ------------------------- |
-| `npx wrangler dev`    | Local development         |
-| `npx wrangler deploy` | Deploy to Cloudflare      |
-| `npx wrangler types`  | Generate TypeScript types |
+| Command               | Purpose                                         |
+| --------------------- | ----------------------------------------------- |
+| `npx wrangler dev`    | Local development                               |
+| `npx wrangler deploy` | Deploy to Cloudflare                            |
+| `npm run types`       | Generate types into `worker-configuration.d.ts` |
+| `npm run types:check` | Fail if the committed types file is stale       |
 
-Run `wrangler types` after changing bindings in wrangler.jsonc.
+Run `npm run types` after changing bindings in wrangler.jsonc and commit the
+regenerated `worker-configuration.d.ts` — `npm run check` (and CI) runs
+`wrangler types --check` and fails when it is out of date.
 
 ## Node.js Compatibility
 
