@@ -43,9 +43,16 @@ src/
     main.tsx              # React entry point
     app.tsx               # router shell — maps routes to pages
     pages/                # one file per route
-      home.tsx            # /
-      chat.tsx            # /chat — chat UI built with Kumo components
-      action.tsx          # /action
+      home.tsx            # / — landing page for both interaction modes
+      chat.tsx            # /chat — Swans Lexi, built with Kumo components
+      action.tsx          # /action?type=… — Direct Actions runner and picker
+    components/           # shared across pages
+      app-header.tsx      # wordmark, badge slot, theme toggle
+      theme-toggle.tsx    # light/dark switch
+      action-grid.tsx     # the action catalog as cards
+      nav-button.tsx      # router link styled as a Kumo button
+    lib/
+      run-action.ts       # how a Direct Action executes (mock; see below)
     styles.css            # Tailwind + Kumo styles
   server/                 # runs on Cloudflare (Worker + Durable Objects)
     index.ts              # Worker entry point — routes requests, exports agents
@@ -56,10 +63,30 @@ src/
         tools.ts          # tool definitions
   shared/
     index.ts              # types and constants both sides agree on
+    actions.ts            # the Direct Actions catalog
 ```
 
 Imports use path aliases: `@shared`, `@server/*`, and `@client/*` (declared in
 `tsconfig.json` and mirrored in `vite.config.ts`).
+
+### Direct Actions
+
+Swans AI has two ways in: **Swans Lexi** (the conversational agent at `/chat`)
+and **Direct Actions** — one click, one result, no conversation — at
+`/action?type=<type>`.
+
+The catalog lives in `src/shared/actions.ts`, re-exported through `@shared`.
+Adding an action means adding one entry there; the homepage grid, the picker at
+`/action`, and the runner all read from it. Entries marked `status: "soon"`
+render as disabled cards.
+
+**The joke action is currently mocked.** `src/client/lib/run-action.ts` fakes a
+run — named steps, then canned results — behind an interface shaped like a
+Cloudflare Workflow, so the pages don't change when the real backend lands. That
+file documents the swap: add a `workflows` binding plus `/api/*` in
+`assets.run_worker_first`, route `POST /api/action` and
+`GET /api/action/:instanceId` in the Worker, then map the Workflow status onto
+the existing `ActionRunState` union.
 
 ### Adding a second agent
 
