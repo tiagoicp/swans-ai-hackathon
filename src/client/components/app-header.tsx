@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
+import { Button } from "@cloudflare/kumo";
+import { SignOutIcon, UserCircleIcon } from "@phosphor-icons/react";
+import { useAuth } from "@client/lib/auth";
 import { ThemeToggle } from "./theme-toggle";
 
 interface AppHeaderProps {
@@ -9,6 +12,40 @@ interface AppHeaderProps {
   children?: ReactNode;
   /** Width of the inner column. Chat runs narrow; the marketing pages don't. */
   contentClassName?: string;
+}
+
+/** Signed-in username plus a log-out button. Renders nothing when logged out. */
+function AuthControls() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  if (!user) return null;
+
+  async function onLogout() {
+    await logout();
+    navigate("/login", { replace: true });
+  }
+
+  return (
+    <>
+      <span className="flex items-center gap-1.5 text-sm text-kumo-secondary">
+        <UserCircleIcon
+          size={18}
+          weight="fill"
+          className="text-kumo-inactive"
+        />
+        <span className="font-medium text-kumo-default">{user.username}</span>
+      </span>
+      <Button
+        variant="secondary"
+        size="sm"
+        icon={<SignOutIcon size={16} />}
+        onClick={onLogout}
+      >
+        Log out
+      </Button>
+    </>
+  );
 }
 
 /** The wordmark, badge and theme toggle shared by every page. */
@@ -33,6 +70,7 @@ export function AppHeader({
         </div>
         <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
           {children}
+          <AuthControls />
           <ThemeToggle />
         </div>
       </div>

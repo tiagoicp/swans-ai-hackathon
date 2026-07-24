@@ -1,5 +1,6 @@
 import { routeAgentRequest } from "agents";
 import { handleActionRequest } from "./api/actions";
+import { handleAuthRequest } from "./api/auth";
 
 // Durable Object and Workflow classes must be exported from the Worker
 // entrypoint — this is how Wrangler resolves the bindings declared in
@@ -13,6 +14,7 @@ export default {
     const url = new URL(request.url);
 
     return (
+      (await handleAuthRequest(request, env, url)) ||
       (await handleActionRequest(request, env, url)) ||
       (await routeAgentRequest(request, env)) ||
       new Response("Not found", { status: 404 })
