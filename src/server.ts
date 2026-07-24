@@ -1,5 +1,5 @@
 import { createWorkersAI } from "workers-ai-provider";
-import { callable, routeAgentRequest, type Schedule } from "agents";
+import { routeAgentRequest, type Schedule } from "agents";
 import { getSchedulePrompt, scheduleSchema } from "agents/schedule";
 import { AIChatAgent, type OnChatMessageOptions } from "@cloudflare/ai-chat";
 import {
@@ -17,44 +17,10 @@ export class ChatAgent extends AIChatAgent<Env> {
   maxPersistedMessages = 100;
   chatRecovery = true;
 
-  onStart() {
-    // Configure OAuth popup behavior for MCP servers that require authentication
-    this.mcp.configureOAuthCallback({
-      customHandler: (result) => {
-        if (result.authSuccess) {
-          return new Response("<script>window.close();</script>", {
-            headers: { "content-type": "text/html" },
-            status: 200
-          });
-        }
-        return new Response(
-          `Authentication Failed: ${result.authError || "Unknown error"}`,
-          { headers: { "content-type": "text/plain" }, status: 400 }
-        );
-      }
-    });
-  }
-
-  @callable()
-  async addServer(name: string, url: string) {
-    return await this.addMcpServer(name, url);
-  }
-
-  @callable()
-  async removeServer(serverId: string) {
-    await this.removeMcpServer(serverId);
-  }
-
   async onChatMessage(_onFinish: unknown, options?: OnChatMessageOptions) {
-    const mcpTools = this.mcp.getAITools();
     const workersai = createWorkersAI({ binding: this.env.AI });
 
-    // Hoisted so the same set can be passed to `toUIMessageStream` below,
-    // which needs it to flag MCP tool parts as dynamic for the client.
     const tools = {
-      // MCP tools from connected servers
-      ...mcpTools,
-
       // Server-side tool: runs automatically on the server
       getWeather: tool({
         description: "Get the current weather for a city",
@@ -188,7 +154,7 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
     });
 
     return createUIMessageStreamResponse({
-      stream: toUIMessageStream({ stream: result.stream, tools })
+      stream: toUIMessageStream({ stream: result.stream })
     });
   }
 
