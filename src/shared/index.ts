@@ -16,6 +16,34 @@ export * from "./actions";
  */
 export const CLIENT_TOOL_TIMEZONE = "getUserTimezone" as const;
 
+/**
+ * A logged-in identity. There are no passwords: a username maps deterministically
+ * to a `userId`, so the same name is the same user on any device.
+ */
+export type User = {
+  /** Stable, slugified id derived from the username. Safe as a URL path segment. */
+  userId: string;
+  /** The display name the user typed, preserved as-entered. */
+  username: string;
+};
+
+/**
+ * Turns a raw username into a stable `userId`: trimmed, lowercased, spaces to
+ * dashes, everything outside `[a-z0-9-]` stripped, repeat dashes collapsed. The
+ * result must be safe both as the session-cookie id and as a `ChatAgent` room
+ * name (which becomes a URL path segment). Returns "" when nothing survives, so
+ * the caller can reject empty logins. Shared so client and server agree.
+ */
+export function normalizeUsername(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 /** Broadcast by the agent when a scheduled task fires. */
 export type ScheduledTaskEvent = {
   type: "scheduled-task";

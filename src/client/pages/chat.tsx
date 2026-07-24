@@ -202,6 +202,9 @@ export default function Chat() {
 
   const agent = useAgent<ChatAgent>({
     agent: "ChatAgent",
+    // Placeholder room: the Worker rewrites this to the signed-in user's id, so
+    // the browser never picks whose chat it opens. See `scopeAgentToUser`.
+    name: "me",
     onOpen: useCallback(() => setConnected(true), []),
     onClose: useCallback(() => setConnected(false), []),
     onError: useCallback(
