@@ -3,6 +3,7 @@ import { ACTIONS, type ActionDefinition } from "@shared";
 import { Badge, LayerCard, Text } from "@cloudflare/kumo";
 import {
   ArrowRightIcon,
+  FilesIcon,
   FileTextIcon,
   type Icon,
   LightningIcon,
@@ -18,6 +19,7 @@ import {
  */
 const ACTION_ICONS: Record<string, Icon> = {
   joke: SmileyIcon,
+  "case-documents": FilesIcon,
   summarize: FileTextIcon,
   translate: TranslateIcon,
   digest: NewspaperIcon
@@ -62,7 +64,7 @@ function ActionCard({ action }: { action: ActionDefinition }) {
 
   return (
     <Link
-      to={`/action?type=${encodeURIComponent(action.type)}`}
+      to={action.href ?? `/action?type=${encodeURIComponent(action.type)}`}
       className="group block rounded-xl bg-kumo-base p-5 ring ring-kumo-line transition-all hover:ring-kumo-brand hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kumo-ring"
     >
       {body}

@@ -31,6 +31,11 @@ export interface ActionDefinition {
   status: ActionStatus;
   /** Present only for actions that take a number before running. */
   countInput?: ActionCountInput;
+  /**
+   * A dedicated page for actions too rich for the generic `?type=` runner.
+   * When set, the card links here instead of `/action?type=<type>`.
+   */
+  href?: string;
 }
 
 export const ACTIONS: readonly ActionDefinition[] = [
@@ -47,6 +52,14 @@ export const ACTIONS: readonly ActionDefinition[] = [
       max: 10,
       defaultValue: 3
     }
+  },
+  {
+    type: "case-documents",
+    title: "Process case documents",
+    description:
+      "Upload medical records and bills for a case; Gemini extracts every event, date and cost into a review table.",
+    status: "live",
+    href: "/case"
   },
   {
     type: "summarize",

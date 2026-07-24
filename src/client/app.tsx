@@ -5,6 +5,7 @@ import { Toasty } from "@cloudflare/kumo/components/toast";
 const Home = lazy(() => import("./pages/home"));
 const Chat = lazy(() => import("./pages/chat"));
 const Action = lazy(() => import("./pages/action"));
+const CasePage = lazy(() => import("./pages/case"));
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/action" element={<Action />} />
+            <Route path="/case" element={<CasePage />} />
           </Routes>
         </BrowserRouter>
       </Suspense>
