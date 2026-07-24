@@ -10,6 +10,7 @@ import {
 } from "ai";
 import { createWorkersAI } from "workers-ai-provider";
 import type { ScheduledTaskEvent } from "@shared";
+import { AI_GATEWAY_ID } from "../../ai";
 import { buildSystemPrompt } from "./prompts";
 import { createTools } from "./tools";
 
@@ -17,14 +18,17 @@ import { createTools } from "./tools";
 const MODEL_ID = "@cf/moonshotai/kimi-k2.6";
 
 /** Upper bound on tool-call round trips within a single response. */
-const MAX_STEPS = 5;
+const MAX_STEPS = 8;
 
 export class ChatAgent extends AIChatAgent<Env> {
   maxPersistedMessages = 100;
   chatRecovery = true;
 
   async onChatMessage(_onFinish: unknown, options?: OnChatMessageOptions) {
-    const workersai = createWorkersAI({ binding: this.env.AI });
+    const workersai = createWorkersAI({
+      binding: this.env.AI,
+      gateway: { id: AI_GATEWAY_ID }
+    });
 
     const result = streamText({
       model: workersai(MODEL_ID, {
@@ -36,7 +40,7 @@ export class ChatAgent extends AIChatAgent<Env> {
         messages: await convertToModelMessages(this.messages),
         toolCalls: "before-last-2-messages"
       }),
-      tools: createTools(this),
+      tools: createTools(this, this.env),
       stopWhen: stepCountIs(MAX_STEPS),
       abortSignal: options?.abortSignal
     });

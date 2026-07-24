@@ -149,3 +149,4 @@ dist
 
 # VSCode
 .vscode/
+.claude/settings.local.json

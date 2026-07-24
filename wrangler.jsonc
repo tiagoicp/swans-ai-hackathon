@@ -6,10 +6,16 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "swans-ai",
   "main": "src/server/index.ts",
-  "compatibility_date": "2026-03-02",
+  "compatibility_date": "2026-03-24",
   "compatibility_flags": ["nodejs_compat"],
   "ai": {
     "binding": "AI",
+    "remote": true
+  },
+  // Browser Rendering — powers the agent's Quick Action browser tools.
+  // remote: true lets Quick Actions run under local `wrangler dev`.
+  "browser": {
+    "binding": "BROWSER",
     "remote": true
   },
   "assets": {
