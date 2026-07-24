@@ -121,7 +121,7 @@ myTool: tool({
 
 // Client-side: no execute function, browser provides the result.
 // Export the name from src/shared/index.ts (like CLIENT_TOOL_TIMEZONE) so the
-// onToolCall handler in app.tsx matches on the same constant, not a copy.
+// onToolCall handler in src/client/pages/chat.tsx matches the same constant, not a copy.
 browserTool: tool({
   description: "...",
   inputSchema: z.object({ /* ... */ })
