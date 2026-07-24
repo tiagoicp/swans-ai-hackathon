@@ -9,6 +9,9 @@
 // this file alone — there is no `@shared/*` path in tsconfig.json.
 export * from "./actions";
 
+// Case Documents types (the `/api/process` contract and `CaseEvent`).
+export * from "./case";
+
 /**
  * The one tool declared without a server-side `execute`: the browser fulfills it
  * via the `onToolCall` callback. Both sides import this constant so the name

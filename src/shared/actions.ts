@@ -57,7 +57,7 @@ export const ACTIONS: readonly ActionDefinition[] = [
     type: "case-documents",
     title: "Process case documents",
     description:
-      "Upload medical records and bills for a case; Gemini extracts every event, date and cost into a review table.",
+      "Upload medical records and bills for a case; AI extracts every event, date and cost into a review table.",
     status: "live",
     href: "/case"
   },

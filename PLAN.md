@@ -1,8 +1,9 @@
 # Plan — Case Documents: AI document processing for a personal injury case
 
 Demo feature for the legal AI hackathon: upload documents for one hardcoded
-case, extract text + structured medical/case events with Gemini
-(`gemini-2.5-flash`), review the results in an editable table. No auth, no
+case, extract text + structured medical/case events with **Cloudflare
+Workers AI** (free, no API key — the `AI` binding already in
+`wrangler.jsonc`), review the results in an editable table. No auth, no
 database — in-memory client state only.
 
 ## ⚠️ Stack reality check (deviation from the original brief)
@@ -17,7 +18,7 @@ Next.js and we should not scaffold one.** The existing stack is:
 | Routing | `react-router` 7 (`BrowserRouter` in `src/client/app.tsx`) |
 | Styling | Tailwind v4 + `@cloudflare/kumo` component kit (`Button`, `Input`, `LayerCard`, `Badge`, `Text`, `Loader`, `Toasty`) + Phosphor icons |
 | Validation | `zod` v4 already installed |
-| Existing AI | Workers AI chat agent (Durable Object) — untouched by this feature |
+| Existing AI | Workers AI binding `env.AI` (`remote: true` — real inference even in local dev) + chat agent Durable Object (untouched) |
 | Direct Actions | Catalog in `src/shared/actions.ts`, grid in `src/client/components/action-grid.tsx`, runner page `src/client/pages/action.tsx` |
 
 Everything in the brief maps cleanly:
@@ -31,10 +32,31 @@ Everything in the brief maps cleanly:
 - **"Legal software feel"** → we get it for free by reusing Kumo components
   and the existing `kumo-*` neutral token palette (also keeps dark mode
   working via the existing `ThemeToggle`).
-- **`GEMINI_API_KEY` in `.env.local`** → Wrangler v4 reads `.env.local` in
-  local dev (both are already gitignored). If the var doesn't show up on
-  `env`, mirror it into `.dev.vars` (also gitignored). For deploy:
-  `npx wrangler secret put GEMINI_API_KEY`.
+- **Gemini + `GEMINI_API_KEY`** → dropped entirely in favour of **Workers AI
+  via the existing `env.AI` binding**. No key, no `.env.local`, no secrets:
+  the binding is already configured with `"remote": true`, so `npm start`
+  runs real inference, and the free tier (10,000 neurons/day) covers a demo.
+
+## Model choice (Workers AI)
+
+The task needs three capabilities; no single free model covers all of them
+well, so each step uses the best free tool for it (all verified against the
+current Workers AI docs):
+
+| Step | Choice | Why |
+| --- | --- | --- |
+| PDF → text | **`env.AI.toMarkdown()`** (Markdown Conversion) | Purpose-built binding, PDF is a supported format, no LLM involved — fast and effectively free. Bonus: markdown output preserves table structure in medical bills. |
+| Image → text | **`@cf/meta/llama-3.2-11b-vision-instruct`** | The only *vision* model on the official JSON Mode support list, so one model id covers image transcription now and keeps the option of direct image→events later. (`toMarkdown()` on images only captions them via object detection — useless for reading a scanned bill.) |
+| Text → structured events | **`@cf/meta/llama-3.3-70b-instruct-fp8-fast`** | The strongest model on the JSON Mode support list (`response_format: { type: "json_schema" }` — OpenAI-compatible). 70B-class extraction quality matters for dates/amounts/confidence; the fp8-fast variant keeps demo latency down. |
+
+Rejected alternatives: `@cf/moonshotai/kimi-k2.6` (the chat agent's model)
+and `@cf/meta/llama-4-scout-17b-16e-instruct` are not on the JSON Mode
+support list; `@cf/deepseek-ai/deepseek-r1-distill-qwen-32b` is (and is
+smart) but burns time on reasoning tokens — wrong trade-off for a live demo.
+Model ids live as constants in `src/server/lib/ai.ts`, swappable in one
+place. Caveat from the docs: even in JSON Mode the platform may return a
+`JSON Mode couldn't be met` error — the phase 4 zod/retry layer handles that
+path anyway.
 
 One repo convention to respect: **`src/shared` must stay free of runtime
 dependencies** (it's imported by both Worker and browser). So shared event
@@ -51,7 +73,7 @@ catalog:
      type: "case-documents",
      title: "Process case documents",
      description:
-       "Upload medical records and bills for a case; Gemini extracts every event, date and cost into a review table.",
+       "Upload medical records and bills for a case; AI extracts every event, date and cost into a review table.",
      status: "live",
      href: "/case"   // new optional field, see below
    }
@@ -76,7 +98,7 @@ src/client/components/case/file-list.tsx
 src/client/components/case/review-table.tsx
 src/client/lib/use-case-documents.ts      # all client state + processing calls
 src/server/routes/process.ts              # POST /api/process handler
-src/server/lib/gemini.ts                  # Gemini REST helpers (text + JSON mode)
+src/server/lib/ai.ts                      # model ids + env.AI.run()/toMarkdown() helpers
 src/server/lib/extract-events.ts          # zod schema, validate, one-retry logic
 ```
 
@@ -160,25 +182,29 @@ so they're easy to restyle tomorrow. All state lives in one hook
 - Remove a row → count decrements. Network tab shows one `POST /api/process`
   per file returning JSON (proving `run_worker_first` works).
 
-## Phase 3 — Text extraction (Gemini inline data)
+## Phase 3 — Text extraction (Workers AI)
+
+Replace the stub in `process.ts` with real text extraction — `env.AI.toMarkdown()`
+for PDFs, the vision model for images, `file.text()` for TXT — and surface a
+`rawText` preview per row.
 
 **Work**
 
-1. Env: `GEMINI_API_KEY=...` in `.env.local` (mirror to `.dev.vars` if it
-   doesn't appear). Declare it for types: `npm run types` regenerates `Env`.
-2. `src/server/lib/gemini.ts` — **plain `fetch` against the REST API, no SDK**
-   (one less dependency; the API is two small POST bodies):
-   `POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`
-   with header `x-goog-api-key`. Helper
-   `generateContent(env, parts, config?)` returning the first candidate's
-   text, with non-2xx → thrown error carrying Google's error message.
+1. No env setup at all — the `AI` binding already exists and `remote: true`
+   makes local dev hit real inference.
+2. `src/server/lib/ai.ts` — model id constants (see "Model choice") plus two
+   thin helpers around the binding: `pdfToText(env, file)` and
+   `imageToText(env, file)`. Errors thrown with the binding's message
+   attached; no SDK, no HTTP client, no key handling.
 3. `process.ts` per file:
    - `text/plain` → `await file.text()`.
-   - PDF/PNG/JPG → `Buffer.from(await file.arrayBuffer()).toString("base64")`
-     (`nodejs_compat` is on) → one part
-     `{ inlineData: { mimeType, data } }` + a prompt part: "Transcribe the
-     full text content of this document. Preserve reading order. Output plain
-     text only." Gemini reads PDFs/images natively — no OCR library.
+   - PDF → `env.AI.toMarkdown({ name, blob })` → markdown string. (Note:
+     this extracts *embedded* text; a pure image-scan PDF may come back
+     near-empty — acceptable demo caveat, surfaced as a "no text found"
+     error rather than silence.)
+   - PNG/JPG → `env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", ... )`
+     with the image bytes and prompt: "Transcribe the full text content of
+     this document image. Preserve reading order. Output plain text only."
    - Response: `{ filename, rawText }` or `{ filename, error }` with an
      appropriate 4xx/5xx. Never throw across the whole request.
 4. Client: store `rawText` on the document; `FileList` rows get a
@@ -188,11 +214,11 @@ so they're easy to restyle tomorrow. All state lives in one hook
 **Test**
 
 - Upload a `.txt` → done almost instantly, preview shows exact contents.
-- Upload a real PDF (medical bill) and a photo/screenshot of text → status
-  sits at "processing" a few seconds, then preview shows a faithful
-  transcription.
-- Kill the API key → rows go to "error" with a readable message, app doesn't
-  crash. Restore key.
+- Upload a real PDF (medical bill) → preview shows the text as markdown,
+  tables included. Upload a photo/screenshot of text → status sits at
+  "processing" a few seconds, then preview shows a faithful transcription.
+- Break a model id constant temporarily → rows go to "error" with a readable
+  message, app doesn't crash. Restore it.
 
 ## Phase 4 — Structured extraction (JSON mode + zod + retry)
 
@@ -213,18 +239,20 @@ so they're easy to restyle tomorrow. All state lives in one hook
 2. `src/server/lib/extract-events.ts`:
    - zod schema mirroring the above (`date` regex `\d{4}-\d{2}-\d{2}` or
      literal `"unknown"`), wrapped in `{ events: [...] }`.
-   - Gemini call #2 (input: the raw text from phase 3 + filename — cheaper
-     and more debuggable than re-sending the binary; revisit to a single
-     combined call later if demo latency matters) with JSON mode:
-     `responseMimeType: "application/json"` + a hand-written `responseSchema`
-     (Gemini's OpenAPI-subset format — written manually, not derived from
-     zod, since zod v4's JSON Schema output isn't Gemini's dialect).
+   - Extraction call (input: the raw text from phase 3 + filename — cheaper
+     and more debuggable than re-sending the binary):
+     `env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", { messages,
+     response_format: { type: "json_schema", json_schema } })` — Workers AI
+     JSON Mode, OpenAI-compatible. The `json_schema` is standard JSON
+     Schema, generated straight from the zod schema via zod v4's built-in
+     `z.toJSONSchema()` — one source of truth for schema and validation.
    - Prompt includes verbatim: *"Only extract facts explicitly present in the
      document. If a value is uncertain or partially legible, set confidence
      to 'low'. Never guess dates or amounts."* Plus: use the provided
      filename as `source_file`; `source_page` only if the page is known,
      else null.
-   - Validation: `JSON.parse` → `schema.safeParse`. On failure, **one retry**:
+   - Validation: `JSON.parse` → `schema.safeParse`. On failure — including
+     the platform's own `JSON Mode couldn't be met` error — **one retry**:
      re-send with the invalid output + zod's issues appended ("Your previous
      response was invalid JSON for the schema: {issues}. Return a corrected
      response."). Still invalid → that file returns
@@ -287,11 +315,14 @@ so they're easy to restyle tomorrow. All state lives in one hook
 
 - **Do phase 2's server plumbing early** (`run_worker_first`, `npm run
   types`) — it's the only config-level risk; everything after is plain code.
-- **Per-file requests** (not one batch) — keeps each request under Gemini's
-  ~20 MB inline-data budget and gives honest per-file status/errors.
-- **Two Gemini calls per file** (transcribe → extract) — matches the phase
-  structure and is easier to debug; can be collapsed into one call with a
-  combined `{ rawText, events }` responseSchema if demo latency needs it.
+- **Per-file requests** (not one batch) — honest per-file status/errors, and
+  each request stays small (≤ 20 MB, our own validation limit).
+- **Two AI steps per file** (get text → extract events) — matches the phase
+  structure, is easier to debug, and is forced anyway for PDFs
+  (`toMarkdown()` produces text; only the extraction step is an LLM call).
+- **Free-tier budget** — Workers AI gives 10,000 neurons/day free; the
+  70B extraction call is the main consumer. Fine for a demo day; if the
+  quota trips mid-demo, the error path already renders per-file.
 - **Untouched:** chat agent, Durable Object, joke action, home/chat pages —
   only additive changes plus the tiny `href` extension to `ActionDefinition`.
 - Run `npm run check` (types + prettier + eslint + tsc) at each phase
