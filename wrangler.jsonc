@@ -15,13 +15,19 @@
   "assets": {
     "directory": "./public",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/agents/*", "/oauth/*"]
+    // Without "/api/*" here, the SPA fallback above would answer API requests
+    // with index.html once deployed — local dev does not reproduce this.
+    "run_worker_first": ["/agents/*", "/oauth/*", "/api/*"]
   },
   "durable_objects": {
     "bindings": [
       {
         "class_name": "ChatAgent",
         "name": "ChatAgent"
+      },
+      {
+        "class_name": "RunProgress",
+        "name": "RunProgress"
       }
     ]
   },
@@ -29,6 +35,17 @@
     {
       "new_sqlite_classes": ["ChatAgent"],
       "tag": "v1"
+    },
+    {
+      "new_sqlite_classes": ["RunProgress"],
+      "tag": "v2"
+    }
+  ],
+  "workflows": [
+    {
+      "binding": "JOKE_WORKFLOW",
+      "class_name": "JokeWorkflow",
+      "name": "joke"
     }
   ],
   "observability": {

@@ -78,3 +78,23 @@ export function findAction(
   if (!type) return undefined;
   return ACTIONS.find((action) => action.type === type);
 }
+
+// ── Running an action ─────────────────────────────────────────────────
+
+/**
+ * The state of a run, as both the Worker's wire format and the runner's view
+ * model. The `GET /api/action/:runId` endpoint returns this union verbatim and
+ * the page renders it, so the two cannot drift apart.
+ *
+ * `idle` is the one client-only case — the server never sends it.
+ */
+export type ActionRunState =
+  | { status: "idle" }
+  | { status: "running"; step: string; stepIndex: number; stepCount: number }
+  | { status: "complete"; results: string[] }
+  | { status: "error"; message: string };
+
+/** Response body of `POST /api/action`. */
+export interface StartRunResponse {
+  runId: string;
+}

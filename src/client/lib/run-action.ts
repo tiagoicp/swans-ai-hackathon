@@ -1,112 +1,110 @@
+import type { ActionRunState, StartRunResponse } from "@shared";
+
 /**
- * The one place that knows how a Direct Action executes.
+ * The browser half of Direct Actions.
  *
- * Today it is a mock. The shape, however, is deliberately that of a Cloudflare
- * Workflow run — start, then a sequence of named steps, then a result — so the
- * pages consuming it never have to change when the real backend lands.
+ * A run is a real Cloudflare Workflow living on the server, so this is two
+ * concerns rather than one call: `startRun` kicks a workflow off and hands back
+ * its id, and `watchRun` follows an id that already exists. Keeping them apart
+ * is what lets the id live in the URL — a reload calls only `watchRun` and
+ * rejoins a run already in flight.
  *
- * ── Swapping in the real Workflow ──────────────────────────────────────
- * 1. `wrangler.jsonc`: add a `workflows` binding for the joke workflow, and add
- *    `"/api/*"` to `assets.run_worker_first` (currently `["/agents/*",
- *    "/oauth/*"]`) so the Worker sees those requests instead of the asset
- *    server. Then `npm run types` and commit `worker-configuration.d.ts`.
- * 2. `src/server/index.ts`: route `POST /api/action` → `WORKFLOW.create(...)`,
- *    returning `{ instanceId }`, and `GET /api/action/:instanceId` →
- *    `instance.status()`.
- * 3. Replace the body of `runAction` below: POST to start, then poll a backend
- *    response that maps every Workflow lifecycle state. Because
- *    `instance.status()` exposes only `status`, `error`, and `output`, preserving
- *    named step progress requires the backend to persist and return it too.
+ * `GET /api/action/:runId` returns an `ActionRunState` verbatim, so polling is
+ * mostly just forwarding.
  */
 
-export type ActionRunState =
-  | { status: "idle" }
-  | { status: "running"; step: string; stepIndex: number; stepCount: number }
-  | { status: "complete"; results: string[] }
-  | { status: "error"; message: string };
+const POLL_INTERVAL_MS = 900;
 
-/** Steps the UI narrates while a run is in flight. */
-const JOKE_STEPS = [
-  "Waking Lexi",
-  "Drafting jokes",
-  "Polishing punchlines"
-] as const;
+/** Stop following a run that has gone quiet for this long. */
+const WATCH_TIMEOUT_MS = 3 * 60 * 1000;
 
-const CANNED_JOKES = [
-  "Why did the swan refuse to join the band? It only knew one note, and it was a honk.",
-  "A swan walks into a bar. The bartender says “we don't serve waterfowl.” The swan says “that's fine, I'm just here for the tap water.”",
-  "What do you call a swan that's great at deploying software? A graceful rollout.",
-  "Why are swans terrible at hide and seek? They always stick their necks out.",
-  "How does a swan pay for coffee? With a bill, obviously.",
-  "What's a swan's favourite kind of storage? A pond-ended queue.",
-  "Why did the swan get promoted? Outstanding down-to-earth performance.",
-  "Two swans are arguing about migration. One says “let's go south.” The other says “you always take the path of least resistance.”",
-  "What do you call a swan with a great sense of timing? Punctual-ate.",
-  "Why don't swans use cloud storage? They prefer to keep everything on the lake."
-];
-
-const STEP_DELAY_MS = 550;
-
-function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new DOMException("Aborted", "AbortError"));
-      return;
-    }
     const timer = setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
+      signal.removeEventListener("abort", onAbort);
       resolve();
     }, ms);
     function onAbort() {
       clearTimeout(timer);
       reject(new DOMException("Aborted", "AbortError"));
     }
-    signal?.addEventListener("abort", onAbort, { once: true });
+    signal.addEventListener("abort", onAbort, { once: true });
   });
 }
 
+function isAbort(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
 /**
- * Runs a Direct Action, reporting progress through `onState`.
- *
- * Resolves once the run reaches a terminal state. An aborted run reports
- * nothing further — the caller has already moved on.
+ * Starts a run and resolves with its id. Throws if the server rejects the
+ * request — the caller decides how to show that.
  */
-export async function runAction(
+export async function startRun(
   type: string,
   count: number,
+  signal?: AbortSignal
+): Promise<string> {
+  const response = await fetch("/api/action", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type, count }),
+    signal
+  });
+
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    throw new Error(detail?.error ?? "Couldn't start the run.");
+  }
+
+  const { runId } = (await response.json()) as StartRunResponse;
+  return runId;
+}
+
+/**
+ * Polls a run until it finishes, reporting every state along the way.
+ *
+ * Aborting stops the polling but deliberately leaves the workflow running — a
+ * run outliving the tab that started it is the whole point of building this on
+ * Workflows, and the id in the URL is enough to pick it back up.
+ */
+export async function watchRun(
+  runId: string,
   onState: (state: ActionRunState) => void,
   signal?: AbortSignal
 ): Promise<void> {
+  const deadline = Date.now() + WATCH_TIMEOUT_MS;
+
   try {
-    for (const [index, step] of JOKE_STEPS.entries()) {
-      onState({
-        status: "running",
-        step,
-        stepIndex: index + 1,
-        stepCount: JOKE_STEPS.length
+    for (;;) {
+      const response = await fetch(`/api/action/${encodeURIComponent(runId)}`, {
+        signal
       });
-      await sleep(STEP_DELAY_MS, signal);
-    }
 
-    if (type !== "joke") {
-      onState({
-        status: "error",
-        message: `No workflow is wired up for "${type}" yet.`
-      });
-      return;
-    }
+      // Rejections carry an ActionRunState too, so anything unparseable here is
+      // a genuine fault and belongs in the catch below.
+      const state = (await response.json()) as ActionRunState;
+      onState(state);
 
-    // Cycle the pool so a count larger than it still returns `count` jokes.
-    const results = Array.from(
-      { length: count },
-      (_, i) => CANNED_JOKES[i % CANNED_JOKES.length]
-    );
-    onState({ status: "complete", results });
+      if (state.status === "complete" || state.status === "error") return;
+
+      if (Date.now() > deadline) {
+        onState({
+          status: "error",
+          message: "This run is taking unusually long. It may still finish."
+        });
+        return;
+      }
+
+      await sleep(POLL_INTERVAL_MS, signal ?? new AbortController().signal);
+    }
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") return;
+    if (isAbort(error)) return;
     onState({
       status: "error",
-      message: error instanceof Error ? error.message : "Something went wrong."
+      message: "Lost contact with the run. Check your connection and retry."
     });
   }
 }
