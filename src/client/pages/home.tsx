@@ -66,7 +66,7 @@ function PathCard({
           {eyebrow.toUpperCase()}
         </Text>
       </div>
-      <h3 className="mt-1 text-xl font-semibold text-kumo-default">{title}</h3>
+      <h2 className="mt-1 text-xl font-semibold text-kumo-default">{title}</h2>
       <p className="mt-2 text-kumo-secondary">{description}</p>
       <ul className="mt-4 space-y-2 flex-1">
         {bullets.map((bullet) => (
