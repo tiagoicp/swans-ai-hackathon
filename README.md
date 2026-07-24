@@ -135,8 +135,9 @@ Create a sibling folder under `src/server/agents/`, export its class from
 ### Adding a second workflow
 
 Create a sibling folder under `src/server/workflows/`, export the class from
-`src/server/index.ts`, and add a `workflows` entry in `wrangler.jsonc`. Reuse
-`RunProgress` for step reporting. Run `npm run types` afterwards.
+`src/server/index.ts`, and add a `workflows` entry in `wrangler.jsonc`. Update
+`src/server/api/actions.ts` to dispatch the action type to the new binding and
+map its output. Reuse `RunProgress` for step reporting, then run `npm run types`.
 
 ## What's included
 
