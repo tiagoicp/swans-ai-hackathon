@@ -81,12 +81,12 @@ Adding an action means adding one entry there; the homepage grid, the picker at
 render as disabled cards.
 
 **The joke action is currently mocked.** `src/client/lib/run-action.ts` fakes a
-run — named steps, then canned results — behind an interface shaped like a
-Cloudflare Workflow, so the pages don't change when the real backend lands. That
-file documents the swap: add a `workflows` binding plus `/api/*` in
-`assets.run_worker_first`, route `POST /api/action` and
-`GET /api/action/:instanceId` in the Worker, then map the Workflow status onto
-the existing `ActionRunState` union.
+run — named steps, then canned results. For the real integration, add a
+`workflows` binding plus `/api/*` in `assets.run_worker_first`, then route
+`POST /api/action` and `GET /api/action/:instanceId` in the Worker. Map every
+Workflow lifecycle state to `ActionRunState`; because `instance.status()` does
+not expose current-step metadata, preserving named progress also requires the
+backend to persist and return that metadata separately.
 
 ### Adding a second agent
 
