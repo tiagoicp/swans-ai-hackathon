@@ -6,7 +6,7 @@ import {
   type ProcessErrorResponse,
   type ProcessResponse
 } from "@shared";
-import { imageToText, pdfToText } from "../lib/ai";
+import { documentToText, imageToText } from "../lib/ai";
 import { extractEvents } from "../lib/extract-events";
 
 /**
@@ -96,8 +96,8 @@ function extractText(
   kind: DocumentKind
 ): Promise<string> {
   switch (kind) {
-    case "pdf":
-      return pdfToText(env, file);
+    case "document":
+      return documentToText(env, file);
     case "image":
       return imageToText(env, file);
     case "text":

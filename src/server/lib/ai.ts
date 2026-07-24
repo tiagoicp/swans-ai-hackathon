@@ -32,14 +32,20 @@ const TRANSCRIBE_PROMPT =
 const TRANSCRIBE_MAX_TOKENS = 4096;
 
 /**
- * PDF → text via the Markdown Conversion binding. Extracts *embedded* text (a
- * pure image-scan PDF can come back near-empty — the caller surfaces that as a
- * "no text found" error). Markdown output preserves table structure in bills.
+ * Document → text via the Markdown Conversion binding — PDF, Excel/Office
+ * spreadsheets, Word and CSV all convert through this one path. Extracts
+ * *embedded* text (a pure image-scan PDF can come back near-empty — the caller
+ * surfaces that as a "no text found" error). Markdown output preserves table
+ * structure, exactly what a spreadsheet of bills or an expense ledger needs.
+ *
+ * `toMarkdown` streams the blob rather than materializing a giant JS number
+ * array, so unlike the vision path there's no memory ceiling below the 20 MB
+ * upload limit.
  */
-export async function pdfToText(env: Env, file: File): Promise<string> {
+export async function documentToText(env: Env, file: File): Promise<string> {
   const result = await env.AI.toMarkdown({ name: file.name, blob: file });
   if (result.format === "error") {
-    throw new Error(`PDF conversion failed: ${result.error}`);
+    throw new Error(`Document conversion failed: ${result.error}`);
   }
   return result.data;
 }

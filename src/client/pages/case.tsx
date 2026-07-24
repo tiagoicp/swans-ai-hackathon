@@ -4,6 +4,7 @@ import { AppHeader } from "@client/components/app-header";
 import { CaseHeader } from "@client/components/case/case-header";
 import { UploadZone } from "@client/components/case/upload-zone";
 import { FileList } from "@client/components/case/file-list";
+import { ReviewTable } from "@client/components/case/review-table";
 import { useCaseDocuments } from "@client/lib/use-case-documents";
 
 const COLUMN = "max-w-3xl";
@@ -12,18 +13,22 @@ const COLUMN = "max-w-3xl";
  * The Case Documents workspace: upload medical records and bills, let Workers
  * AI transcribe and extract the events, then review them in a table.
  *
- * Phase 2 adds upload — drop zone, file list and per-file processing. Phase 3
- * adds text extraction, phase 4 the structured events (shown raw below for now);
- * the review table replaces the raw dump in phase 5.
+ * Upload (drop zone + file list) feeds per-file processing; text extraction and
+ * structured events run server-side, and the extracted facts land in the
+ * editable, confirmable `ReviewTable` below.
  */
 export default function CasePage() {
   const {
     documents,
-    allEvents,
+    eventRows,
     rejections,
     addFiles,
     removeDocument,
-    dismissRejections
+    dismissRejections,
+    updateEvent,
+    removeEvent,
+    confirmEvent,
+    approveAll
   } = useCaseDocuments();
 
   return (
@@ -54,17 +59,15 @@ export default function CasePage() {
           <FileList documents={documents} onRemove={removeDocument} />
         )}
 
-        {allEvents.length > 0 && (
-          <section className="space-y-2">
-            <Text size="sm" variant="secondary" as="p">
-              {allEvents.length} extracted{" "}
-              {allEvents.length === 1 ? "event" : "events"} (raw — the review
-              table lands in phase 5)
-            </Text>
-            <pre className="max-h-96 overflow-auto rounded-xl bg-kumo-control p-4 font-mono text-xs whitespace-pre-wrap text-kumo-default">
-              {JSON.stringify(allEvents, null, 2)}
-            </pre>
-          </section>
+        {eventRows.length > 0 && (
+          <ReviewTable
+            rows={eventRows}
+            documents={documents}
+            onUpdate={updateEvent}
+            onRemove={removeEvent}
+            onConfirm={confirmEvent}
+            onApproveAll={approveAll}
+          />
         )}
       </main>
     </div>

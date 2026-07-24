@@ -45,8 +45,9 @@ const EXTRACTION_MAX_TOKENS = 4096;
 
 const SYSTEM_PROMPT = [
   "You are a meticulous legal case assistant. Read the document text and extract",
-  "every medical or case event — visits, procedures, diagnoses, bill line items —",
-  "into JSON matching the provided schema.",
+  "every case-relevant fact — medical visits, procedures, diagnoses, bill and",
+  "expense line items, payments, wage-loss entries, mileage — into JSON matching",
+  "the provided schema. Spreadsheet and table rows each become one event.",
   "",
   "Only extract facts explicitly present in the document. If a value is uncertain",
   "or partially legible, set confidence to 'low'. Never guess dates or amounts.",
@@ -56,6 +57,7 @@ const SYSTEM_PROMPT = [
   "- Set `source_page` only when the page is stated in the text, otherwise null.",
   '- `date` is `YYYY-MM-DD`, or the literal "unknown" when no date is legible.',
   "- `cost` is a dollar amount as a plain number, or null when there is no cost.",
+  "- When a row has no provider (e.g. an expense line), use an empty string for `provider`.",
   '- Return an object shaped { "events": [...] } and nothing else.'
 ].join("\n");
 

@@ -3,7 +3,7 @@ import { Button, Text } from "@cloudflare/kumo";
 import { UploadSimpleIcon } from "@phosphor-icons/react";
 
 /** File types the picker advertises. Kept in sync with `useCaseDocuments`. */
-const ACCEPT = ".pdf,.txt,.png,.jpg,.jpeg";
+const ACCEPT = ".pdf,.txt,.png,.jpg,.jpeg,.xlsx,.xls,.xlsm,.xlsb,.docx,.csv";
 
 interface UploadZoneProps {
   /** Receives every dropped or selected file; the hook filters and processes. */
@@ -47,7 +47,7 @@ export function UploadZone({ onFiles }: UploadZoneProps) {
         Drag medical records and bills here
       </Text>
       <Text size="sm" variant="secondary">
-        PDF, TXT, PNG or JPG · up to 20 MB each
+        PDF, Excel, Word, CSV, TXT, PNG or JPG · up to 20 MB each
       </Text>
       <Button
         type="button"

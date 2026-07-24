@@ -1,7 +1,10 @@
 import { Badge, Button, Loader, Text } from "@cloudflare/kumo";
 import {
+  FileCsvIcon,
+  FileDocIcon,
   FilePdfIcon,
   FileTextIcon,
+  FileXlsIcon,
   type Icon,
   ImageIcon,
   WarningCircleIcon,
@@ -10,16 +13,19 @@ import {
 import type { CaseDocument, DocStatus } from "@client/lib/use-case-documents";
 import { classifyDocument } from "@shared";
 
-/** Type glyph for the document's kind (PDF / image / plain text). */
+/**
+ * Type glyph for a document. Several formats share the `"document"` kind
+ * (Excel, Word, CSV, PDF all convert via `toMarkdown`), so pick by extension
+ * for a recognizable icon, then fall back to `classifyDocument` for the
+ * image-vs-text split.
+ */
 function iconFor(file: File): Icon {
-  switch (classifyDocument(file)) {
-    case "pdf":
-      return FilePdfIcon;
-    case "image":
-      return ImageIcon;
-    case "text":
-      return FileTextIcon;
-  }
+  const name = file.name.toLowerCase();
+  if (/\.(xlsx|xlsm|xlsb|xls|ods)$/.test(name)) return FileXlsIcon;
+  if (/\.(docx|odt)$/.test(name)) return FileDocIcon;
+  if (name.endsWith(".csv")) return FileCsvIcon;
+  if (name.endsWith(".pdf")) return FilePdfIcon;
+  return classifyDocument(file) === "image" ? ImageIcon : FileTextIcon;
 }
 
 /** Bytes as a compact human string: "812 B", "18 KB", "2.4 MB". */

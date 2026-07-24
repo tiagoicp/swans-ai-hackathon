@@ -11,20 +11,41 @@
 /** Per-file upload ceiling, enforced on both client and server. */
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
-/** The three extraction paths `/api/process` knows how to route. */
-export type DocumentKind = "pdf" | "image" | "text";
+/**
+ * The three extraction paths `/api/process` knows how to route. `"document"`
+ * is anything `env.AI.toMarkdown()` converts — PDF, Excel/Office spreadsheets,
+ * Word and CSV — not just PDF.
+ */
+export type DocumentKind = "document" | "image" | "text";
+
+/** Extensions routed through the Markdown Conversion binding (`toMarkdown`). */
+const DOC_EXTENSIONS = /\.(pdf|xlsx|xlsm|xlsb|xls|docx|csv|ods|odt)$/;
+
+/** MIME types routed through `toMarkdown`; extensions cover the rest. */
+const DOC_TYPES = new Set([
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+  "application/vnd.ms-excel", // .xls
+  "application/vnd.ms-excel.sheet.macroenabled.12", // .xlsm
+  "application/vnd.ms-excel.sheet.binary.macroenabled.12", // .xlsb
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+  "text/csv"
+]);
 
 /**
  * Classify an upload by MIME type, falling back to its filename extension.
  * The one source of truth for which file types the feature supports — the
  * server routes extractors off it and the client picks type icons off it.
+ *
+ * The extension fallback is first-class: browsers frequently send an empty or
+ * wrong `type` for Office files, so the name is checked alongside the MIME.
  */
 export function classifyDocument(file: {
   name: string;
   type: string;
 }): DocumentKind {
   const name = file.name.toLowerCase();
-  if (file.type === "application/pdf" || name.endsWith(".pdf")) return "pdf";
+  if (DOC_TYPES.has(file.type) || DOC_EXTENSIONS.test(name)) return "document";
   if (file.type.startsWith("image/") || /\.(png|jpe?g)$/.test(name)) {
     return "image";
   }

@@ -1,7 +1,8 @@
 # Plan — Case Documents: AI document processing for a personal injury case
 
 Demo feature for the legal AI hackathon: upload documents for one hardcoded
-case, extract text + structured medical/case events with **Cloudflare
+case (PDF, Excel/Office, CSV, TXT and images), extract text + structured
+case-relevant events with **Cloudflare
 Workers AI** (free, no API key — the `AI` binding already in
 `wrangler.jsonc`), review the results in an editable table. No auth, no
 database — in-memory client state only.
@@ -45,7 +46,7 @@ current Workers AI docs):
 
 | Step | Choice | Why |
 | --- | --- | --- |
-| PDF → text | **`env.AI.toMarkdown()`** (Markdown Conversion) | Purpose-built binding, PDF is a supported format, no LLM involved — fast and effectively free. Bonus: markdown output preserves table structure in medical bills. |
+| PDF / Excel / Word → text | **`env.AI.toMarkdown()`** (Markdown Conversion) | Purpose-built binding; PDF **and Microsoft Office formats (`.xlsx`, `.xlsm`, `.xlsb`, `.xls`, `.docx`), CSV and OpenDocument are all supported inputs** — no LLM involved, fast and effectively free. Markdown output preserves table structure, which is exactly what a spreadsheet of bills or an expense ledger needs. |
 | Image → text | **`@cf/meta/llama-3.2-11b-vision-instruct`** | The only *vision* model on the official JSON Mode support list, so one model id covers image transcription now and keeps the option of direct image→events later. (`toMarkdown()` on images only captions them via object detection — useless for reading a scanned bill.) |
 | Text → structured events | **`@cf/meta/llama-3.3-70b-instruct-fp8-fast`** | The strongest model on the JSON Mode support list (`response_format: { type: "json_schema" }` — OpenAI-compatible). 70B-class extraction quality matters for dates/amounts/confidence; the fp8-fast variant keeps demo latency down. |
 
@@ -151,8 +152,9 @@ so they're easy to restyle tomorrow. All state lives in one hook
    phase 3 on) auto-processing. Validation on add: max 20 MB, allowed types
    `application/pdf`, `text/plain`, `image/png`, `image/jpeg` (check
    extension as a fallback — browsers sometimes send empty MIME types).
+   **Phase 6 widens this allowlist to Excel/Office — see below.**
    Rejected files never enter the list; they surface as a dismissible inline
-   error line under the drop zone ("report.docx: only PDF, TXT, PNG or JPG"
+   error line under the drop zone ("scan.gif: unsupported file type"
    / "scan.pdf: larger than 20 MB").
 2. `UploadZone` — drag-and-drop (dragover highlight ring) + hidden
    `<input type="file" multiple accept=".pdf,.txt,.png,.jpg,.jpeg">` behind a
@@ -308,6 +310,92 @@ for PDFs, the vision model for images, `file.text()` for TXT — and surface a
 - When Y hits 0 → "Approve all reviewed" enables; click → toast.
 - Delete a row → counts update. Source link opens the original file in a new
   tab. `npm run check` still passes.
+
+## Phase 6 — Excel & Office documents (widen ingestion + generalize extraction)
+
+**Goal:** accept spreadsheets (`.xlsx`, `.xls`, `.xlsm`, `.xlsb`), Word
+(`.docx`) and CSV, and pull *any* case-relevant data out of them — not just
+medical bills. This is a small, contained change because
+`env.AI.toMarkdown()` already handles every one of these formats (verified in
+the Workers AI Markdown-Conversion supported-formats table), and the existing
+`pdfToText` helper is just a thin wrapper over it. A binary spreadsheet
+becomes a markdown table, which is *better* structured-extraction input than a
+scanned bill.
+
+Why not `file.text()` for spreadsheets: `.xlsx`/`.xls` are zipped/binary —
+reading them as text yields garbage. They must go through `toMarkdown()`, the
+same path PDFs already take. (CSV is plain text and would work either way; we
+route it through `toMarkdown()` too so its table renders consistently.)
+
+**Work**
+
+1. `src/shared/case.ts` — the single source of truth. Rename the `"pdf"`
+   `DocumentKind` to **`"document"`** (it now means "anything `toMarkdown()`
+   converts", not just PDF) and widen `classifyDocument`:
+   ```ts
+   export type DocumentKind = "document" | "image" | "text";
+
+   const DOC_EXTENSIONS = /\.(pdf|xlsx|xlsm|xlsb|xls|docx|csv|ods|odt)$/;
+   const DOC_TYPES = new Set([
+     "application/pdf",
+     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+     "application/vnd.ms-excel",                                          // .xls
+     "application/vnd.ms-excel.sheet.macroenabled.12",                    // .xlsm
+     "application/vnd.ms-excel.sheet.binary.macroenabled.12",             // .xlsb
+     "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+     "text/csv"
+   ]);
+   ```
+   Image check stays; `.txt` and empty-type unknowns still fall through to
+   `"text"`. Keep the extension fallback first-class — browsers frequently
+   send an empty or wrong `type` for Office files.
+2. `src/server/lib/ai.ts` — rename `pdfToText` → **`documentToText`** (body is
+   unchanged; it already calls `env.AI.toMarkdown`). Generalize the error
+   string from `"PDF conversion failed"` to `"Document conversion failed"`.
+   No new model, no new constant. `MAX_IMAGE_BYTES` does **not** apply here —
+   `toMarkdown` streams the blob and never materializes a giant JS number
+   array, so spreadsheets up to the 20 MB `MAX_UPLOAD_BYTES` are safe.
+3. `src/server/routes/process.ts` — update the `extractText` switch: the
+   `"document"` case calls `documentToText`. The existing "no readable text
+   found" 422 guard now also covers a spreadsheet that converts to nothing.
+4. `src/client/lib/use-case-documents.ts` — extend `ALLOWED_TYPES` (the 7
+   MIME types above) and `ALLOWED_EXTENSIONS`
+   (`.pdf .txt .png .jpg .jpeg .xlsx .xls .xlsm .xlsb .docx .csv`), and reword
+   the rejection message to e.g. `"${file.name}: unsupported file type"`
+   (the exhaustive list is too long to inline).
+5. `src/client/components/case/upload-zone.tsx` — update the `ACCEPT` constant
+   to the widened extension list and the helper text to
+   `"PDF, Excel, Word, CSV, TXT, PNG or JPG · up to 20 MB each"`.
+6. `src/client/components/case/file-list.tsx` — `iconFor` now needs finer
+   granularity than `DocumentKind` (Excel vs PDF vs Word share the
+   `"document"` kind). Switch it to pick by extension: `FileXlsIcon` for
+   spreadsheets, `FileDocIcon` for `.docx`, `FileCsvIcon` for `.csv`,
+   `FilePdfIcon` for `.pdf`, `ImageIcon` / `FileTextIcon` otherwise (all from
+   `@phosphor-icons/react`).
+7. `src/server/lib/extract-events.ts` — generalize `SYSTEM_PROMPT` so it isn't
+   medical-only. Broaden the first sentence to *"extract every case-relevant
+   fact — medical visits, procedures, diagnoses, bill and expense line items,
+   payments, wage-loss entries, mileage"* and add a rule: *"When a row has no
+   provider (e.g. an expense line), use an empty string for `provider`."* The
+   `CaseEvent` schema is unchanged — date/description/provider/cost already
+   model a spreadsheet row cleanly, so this stays a prompt-only change.
+
+**No changes** to the JSON schema, the zod validator, the review table, or the
+merge/sort logic — Excel events flow through the exact same `ProcessResponse`
+→ `EventRow` → `ReviewTable` path as PDF events.
+
+**Test**
+
+- Upload an `.xlsx` of medical bills (date / provider / amount columns) → each
+  row becomes an event with the right date and cost, `source_file` is the
+  spreadsheet name, sorted into the merged timeline with the PDF/TXT events.
+- Upload a `.csv` expense ledger with no provider column → events come back
+  with empty `provider`, costs populated, `confidence` reasonable.
+- Upload a `.docx` narrative → prose events extracted like a TXT.
+- Upload a `.gif` or `.zip` → still rejected inline (allowlist unchanged for
+  those). A 25 MB `.xlsx` → rejected as "larger than 20 MB".
+- Type icons render per format (Excel/Word/CSV/PDF distinct). `npm run check`
+  passes.
 
 ---
 
