@@ -23,8 +23,6 @@ import {
   GearIcon,
   ChatCircleDotsIcon,
   CircleIcon,
-  MoonIcon,
-  SunIcon,
   CheckCircleIcon,
   XCircleIcon,
   BrainIcon,
@@ -34,6 +32,7 @@ import {
   PaperclipIcon,
   ImageIcon
 } from "@phosphor-icons/react";
+import { AppHeader } from "@client/components/app-header";
 
 // ── Attachment helpers ────────────────────────────────────────────────
 
@@ -60,33 +59,6 @@ function fileToDataUri(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-}
-
-// ── Small components ──────────────────────────────────────────────────
-
-function ThemeToggle() {
-  const [dark, setDark] = useState(
-    () => document.documentElement.getAttribute("data-mode") === "dark"
-  );
-
-  const toggle = useCallback(() => {
-    const next = !dark;
-    setDark(next);
-    const mode = next ? "dark" : "light";
-    document.documentElement.setAttribute("data-mode", mode);
-    document.documentElement.style.colorScheme = mode;
-    localStorage.setItem("theme", mode);
-  }, [dark]);
-
-  return (
-    <Button
-      variant="secondary"
-      shape="square"
-      icon={dark ? <SunIcon size={16} /> : <MoonIcon size={16} />}
-      onClick={toggle}
-      aria-label="Toggle theme"
-    />
-  );
 }
 
 // ── Tool rendering ────────────────────────────────────────────────────
@@ -404,48 +376,41 @@ export default function Chat() {
       )}
 
       {/* Header */}
-      <header className="px-5 py-4 bg-kumo-base border-b border-kumo-line">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-kumo-default">
-              <span className="mr-2">⛅</span>Swans AI
-            </h1>
-            <Badge variant="secondary">
-              <ChatCircleDotsIcon size={12} weight="bold" className="mr-1" />
-              AI Chat
-            </Badge>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <CircleIcon
-                size={8}
-                weight="fill"
-                className={connected ? "text-kumo-success" : "text-kumo-danger"}
-              />
-              <Text size="xs" variant="secondary">
-                {connected ? "Connected" : "Disconnected"}
-              </Text>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <BugIcon size={14} className="text-kumo-inactive" />
-              <Switch
-                checked={showDebug}
-                onCheckedChange={setShowDebug}
-                size="sm"
-                aria-label="Toggle debug mode"
-              />
-            </div>
-            <ThemeToggle />
-            <Button
-              variant="secondary"
-              icon={<TrashIcon size={16} />}
-              onClick={clearHistory}
-            >
-              Clear
-            </Button>
-          </div>
+      <AppHeader
+        badge={
+          <Badge variant="secondary">
+            <ChatCircleDotsIcon size={12} weight="bold" className="mr-1" />
+            Swans Lexi
+          </Badge>
+        }
+      >
+        <div className="flex items-center gap-1.5">
+          <CircleIcon
+            size={8}
+            weight="fill"
+            className={connected ? "text-kumo-success" : "text-kumo-danger"}
+          />
+          <Text size="xs" variant="secondary">
+            {connected ? "Connected" : "Disconnected"}
+          </Text>
         </div>
-      </header>
+        <div className="flex items-center gap-1.5">
+          <BugIcon size={14} className="text-kumo-inactive" />
+          <Switch
+            checked={showDebug}
+            onCheckedChange={setShowDebug}
+            size="sm"
+            aria-label="Toggle debug mode"
+          />
+        </div>
+        <Button
+          variant="secondary"
+          icon={<TrashIcon size={16} />}
+          onClick={clearHistory}
+        >
+          Clear
+        </Button>
+      </AppHeader>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto">

@@ -5,6 +5,10 @@
  * dependencies — no `agents`, no `ai`, no `zod`. Types and plain values only.
  */
 
+// The Direct Actions catalog. Re-exported here because `@shared` resolves to
+// this file alone — there is no `@shared/*` path in tsconfig.json.
+export * from "./actions";
+
 /**
  * The one tool declared without a server-side `execute`: the browser fulfills it
  * via the `onToolCall` callback. Both sides import this constant so the name
