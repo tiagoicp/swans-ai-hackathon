@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { findAction, type ActionDefinition } from "@shared";
+import {
+  findAction,
+  type ActionDefinition,
+  type ActionRunState
+} from "@shared";
 import {
   Badge,
   Button,
@@ -20,7 +24,7 @@ import {
 import { AppHeader } from "@client/components/app-header";
 import { ActionGrid } from "@client/components/action-grid";
 import { NavButton } from "@client/components/nav-button";
-import { runAction, type ActionRunState } from "@client/lib/run-action";
+import { startRun, watchRun } from "@client/lib/run-action";
 
 const COLUMN = "max-w-3xl";
 
@@ -91,14 +95,34 @@ function ComingSoon({ action }: { action: ActionDefinition }) {
 
 function Runner({ action }: { action: ActionDefinition }) {
   const countInput = action.countInput;
+  const [searchParams, setSearchParams] = useSearchParams();
   const [count, setCount] = useState(String(countInput?.defaultValue ?? 1));
-  const [state, setState] = useState<ActionRunState>({ status: "idle" });
-  const abortRef = useRef<AbortController | null>(null);
 
-  // Abort any run still in flight when the user navigates away.
+  // The run id lives in the URL rather than in state, so a reload — or someone
+  // else opening the link — rejoins the same workflow instead of starting over.
+  const runId = searchParams.get("run");
+
+  // Landing on a URL that already names a run means we are reattaching, not
+  // idling. Deciding that here rather than in an effect avoids a frame of empty
+  // form before the first poll answers.
+  const [state, setState] = useState<ActionRunState>(() =>
+    runId
+      ? {
+          status: "running",
+          step: "Connecting to the run",
+          stepIndex: 0,
+          stepCount: 0
+        }
+      : { status: "idle" }
+  );
+
   useEffect(() => {
-    return () => abortRef.current?.abort();
-  }, []);
+    if (!runId) return;
+    const controller = new AbortController();
+    watchRun(runId, setState, controller.signal);
+    // Stops the polling only. The workflow keeps going without us.
+    return () => controller.abort();
+  }, [runId]);
 
   const parsed = Number(count);
   const countError =
@@ -111,13 +135,27 @@ function Runner({ action }: { action: ActionDefinition }) {
 
   const isRunning = state.status === "running";
 
-  const start = useCallback(() => {
+  // Starting a run only writes the new id to the URL; the effect above notices
+  // and does the watching. Ids are unique, so "Run again" is the same path.
+  const start = useCallback(async () => {
     if (countError || isRunning) return;
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    runAction(action.type, parsed, setState, controller.signal);
-  }, [action.type, countError, isRunning, parsed]);
+    setState({
+      status: "running",
+      step: "Starting the workflow",
+      stepIndex: 0,
+      stepCount: 0
+    });
+    try {
+      const id = await startRun(action.type, parsed);
+      setSearchParams({ type: action.type, run: id }, { replace: true });
+    } catch (error) {
+      setState({
+        status: "error",
+        message:
+          error instanceof Error ? error.message : "Couldn't start the run."
+      });
+    }
+  }, [action.type, countError, isRunning, parsed, setSearchParams]);
 
   return (
     <div className="space-y-5">
@@ -184,11 +222,14 @@ function Runner({ action }: { action: ActionDefinition }) {
             <Text size="sm" bold as="span">
               {state.step}
             </Text>
-            <div>
-              <Text size="xs" variant="secondary">
-                Step {state.stepIndex} of {state.stepCount}
-              </Text>
-            </div>
+            {/* Nothing to count until the workflow reports its first step. */}
+            {state.stepCount > 0 && (
+              <div>
+                <Text size="xs" variant="secondary">
+                  Step {state.stepIndex} of {state.stepCount}
+                </Text>
+              </div>
+            )}
           </div>
         </LayerCard>
       )}

@@ -52,18 +52,25 @@ src/
       action-grid.tsx     # the action catalog as cards
       nav-button.tsx      # router link styled as a Kumo button
     lib/
-      run-action.ts       # how a Direct Action executes (mock; see below)
+      run-action.ts       # starts and follows a run over HTTP
     styles.css            # Tailwind + Kumo styles
   server/                 # runs on Cloudflare (Worker + Durable Objects)
-    index.ts              # Worker entry point — routes requests, exports agents
+    index.ts              # Worker entry point — routes requests, exports classes
+    api/
+      actions.ts          # POST /api/action, GET /api/action/:runId
     agents/
       chat/               # everything about the chat agent lives here
         agent.ts          # the ChatAgent class, model choice
         prompts.ts        # system prompt
         tools.ts          # tool definitions
+    workflows/
+      run-progress.ts     # Durable Object holding per-step progress
+      joke/               # the joke Workflow
+        workflow.ts       # JokeWorkflow — plan, then fan out
+        prompts.ts        # angle and joke prompts
   shared/
     index.ts              # types and constants both sides agree on
-    actions.ts            # the Direct Actions catalog
+    actions.ts            # the Direct Actions catalog and run-state contract
 ```
 
 Imports use path aliases: `@shared`, `@server/*`, and `@client/*` (declared in
@@ -80,19 +87,56 @@ Adding an action means adding one entry there; the homepage grid, the picker at
 `/action`, and the runner all read from it. Entries marked `status: "soon"`
 render as disabled cards.
 
-**The joke action is currently mocked.** `src/client/lib/run-action.ts` fakes a
-run — named steps, then canned results. For the real integration, add a
-`workflows` binding plus `/api/*` in `assets.run_worker_first`, then route
-`POST /api/action` and `GET /api/action/:instanceId` in the Worker. Map every
-Workflow lifecycle state to `ActionRunState`; because `instance.status()` does
-not expose current-step metadata, preserving named progress also requires the
-backend to persist and return that metadata separately.
+The `joke` action runs on a real **Cloudflare Workflow**:
+
+```
+POST /api/action        { type, count }  →  { runId }
+GET  /api/action/:runId                  →  ActionRunState
+```
+
+`ActionRunState` lives in `src/shared/actions.ts`, so the Worker's JSON response
+is exactly what the page renders — the two cannot drift.
+
+**The workflow plans, then fans out.** One step asks the model for N distinct
+comedic angles; then N steps run in parallel, each writing a single joke on one
+angle. That is not decoration: each joke becomes an independently retried step,
+and handing the model one angle at a time is what stops it repeating itself the
+way it does when asked for ten jokes at once.
+
+**Progress needs a Durable Object.** Workflows deliberately does not expose
+step-level progress — `instance.status()` returns `{ status, error?, output? }`
+and nothing else. So the workflow publishes its own progress to `RunProgress`
+(`src/server/workflows/run-progress.ts`), one instance per run, and the GET
+endpoint merges the two. Everything that object stores is written **by step
+name rather than counted**, because Workflows re-runs `run()` from the top when
+an instance restarts — a `count++` between steps would inflate on every replay.
+Because the jokes finish in parallel, the step counter climbs out of order.
+
+**Runs outlive the tab.** The run id is in the URL (`/action?type=joke&run=<id>`),
+so reloading — or sending someone the link — rejoins a run already in flight.
+Closing the page stops the polling, not the workflow.
+
+The model is set in `workflow.ts` and is deliberately _not_ the chat agent's.
+The agent needs tool calling and long context; this needs to answer before a
+demo audience gets bored. Switching from `kimi-k2.6` to
+`llama-3.3-70b-instruct-fp8-fast` took a 3-joke run from ~2.5 minutes to ~5
+seconds.
+
+> Note: `POST /api/action` is unauthenticated and each call fans out to as many
+> as 11 AI requests. `count` is capped server-side against the catalog, but
+> there is no rate limiting — fine for a hackathon, not for public exposure.
 
 ### Adding a second agent
 
 Create a sibling folder under `src/server/agents/`, export its class from
 `src/server/index.ts`, then add a Durable Object binding and a migration entry in
 `wrangler.jsonc`.
+
+### Adding a second workflow
+
+Create a sibling folder under `src/server/workflows/`, export the class from
+`src/server/index.ts`, and add a `workflows` entry in `wrangler.jsonc`. Reuse
+`RunProgress` for step reporting. Run `npm run types` afterwards.
 
 ## What's included
 
