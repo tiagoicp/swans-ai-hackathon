@@ -1,3 +1,4 @@
+import { createQuickActionTools } from "agents/browser/ai";
 import { scheduleSchema } from "agents/schedule";
 import { tool } from "ai";
 import { z } from "zod";
@@ -67,13 +68,19 @@ const calculate = tool({
 
 /**
  * Builds the agent's tools. The scheduling tools need the agent instance for
- * its schedule storage, so the whole set is produced per call.
+ * its schedule storage, and the browser tools need the BROWSER binding — which
+ * lives on the agent's protected `env`, so it is passed in explicitly. The whole
+ * set is produced per call.
  */
-export function createTools(agent: ChatAgent) {
+export function createTools(agent: ChatAgent, env: Env) {
   return {
     getWeather,
     [CLIENT_TOOL_TIMEZONE]: getUserTimezone,
     calculate,
+
+    // Browser Rendering Quick Actions: browser_markdown, browser_extract,
+    // browser_links, browser_scrape (the default 4-tool set).
+    ...createQuickActionTools({ browser: env.BROWSER }),
 
     scheduleTask: tool({
       description:

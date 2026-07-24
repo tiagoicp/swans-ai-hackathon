@@ -5,6 +5,7 @@ import {
 } from "cloudflare:workers";
 import { generateText } from "ai";
 import { createWorkersAI } from "workers-ai-provider";
+import { AI_GATEWAY_ID } from "../../ai";
 import type { RunProgress } from "../run-progress";
 import { buildAnglesPrompt, buildJokePrompt } from "./prompts";
 
@@ -62,7 +63,10 @@ export class JokeWorkflow extends WorkflowEntrypoint<Env, JokeWorkflowParams> {
     step: WorkflowStep
   ): Promise<JokeWorkflowOutput> {
     const { count } = event.payload;
-    const workersai = createWorkersAI({ binding: this.env.AI });
+    const workersai = createWorkersAI({
+      binding: this.env.AI,
+      gateway: { id: AI_GATEWAY_ID }
+    });
     const progress = this.env.RunProgress.get(
       this.env.RunProgress.idFromName(event.instanceId)
     );
