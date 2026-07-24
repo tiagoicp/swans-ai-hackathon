@@ -8,17 +8,18 @@ import {
   XIcon
 } from "@phosphor-icons/react";
 import type { CaseDocument, DocStatus } from "@client/lib/use-case-documents";
+import { classifyDocument } from "@shared";
 
-/** Type glyph from the MIME type, falling back to the filename extension. */
+/** Type glyph for the document's kind (PDF / image / plain text). */
 function iconFor(file: File): Icon {
-  const name = file.name.toLowerCase();
-  if (file.type === "application/pdf" || name.endsWith(".pdf")) {
-    return FilePdfIcon;
+  switch (classifyDocument(file)) {
+    case "pdf":
+      return FilePdfIcon;
+    case "image":
+      return ImageIcon;
+    case "text":
+      return FileTextIcon;
   }
-  if (file.type.startsWith("image/") || /\.(png|jpe?g)$/.test(name)) {
-    return ImageIcon;
-  }
-  return FileTextIcon;
 }
 
 /** Bytes as a compact human string: "812 B", "18 KB", "2.4 MB". */
@@ -62,37 +63,54 @@ export function FileList({ documents, onRemove }: FileListProps) {
         return (
           <li
             key={doc.id}
-            className="flex items-center gap-3 rounded-xl bg-kumo-base p-3 ring ring-kumo-line"
+            className="rounded-xl bg-kumo-base ring ring-kumo-line"
           >
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-kumo-control text-kumo-brand">
-              <TypeIcon size={18} weight="duotone" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-kumo-default">
-                {doc.file.name}
-              </p>
-              <Text size="xs" variant="secondary">
-                {formatSize(doc.file.size)}
-              </Text>
-              {doc.status === "error" && doc.error && (
-                <div className="mt-1 flex items-start gap-1 text-kumo-danger">
-                  <WarningCircleIcon size={13} className="mt-0.5 shrink-0" />
-                  <span className="text-xs">{doc.error}</span>
-                </div>
-              )}
+            <div className="flex items-center gap-3 p-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-kumo-control text-kumo-brand">
+                <TypeIcon size={18} weight="duotone" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-kumo-default">
+                  {doc.file.name}
+                </p>
+                <Text size="xs" variant="secondary">
+                  {formatSize(doc.file.size)}
+                </Text>
+                {doc.status === "error" && doc.error && (
+                  <div className="mt-1 flex items-start gap-1 text-kumo-danger">
+                    <WarningCircleIcon size={13} className="mt-0.5 shrink-0" />
+                    <span className="text-xs">{doc.error}</span>
+                  </div>
+                )}
+              </div>
+              <StatusBadge status={doc.status} />
+              <Button
+                variant="ghost"
+                shape="square"
+                size="sm"
+                icon={<XIcon size={15} />}
+                aria-label={`Remove ${doc.file.name}`}
+                onClick={() => onRemove(doc.id)}
+              />
             </div>
-            <StatusBadge status={doc.status} />
-            <Button
-              variant="ghost"
-              shape="square"
-              size="sm"
-              icon={<XIcon size={15} />}
-              aria-label={`Remove ${doc.file.name}`}
-              onClick={() => onRemove(doc.id)}
-            />
+            {doc.rawText && <RawTextPreview text={doc.rawText} />}
           </li>
         );
       })}
     </ul>
+  );
+}
+
+/** Collapsible, scrollable view of the text extracted from a document. */
+function RawTextPreview({ text }: { text: string }) {
+  return (
+    <details className="border-t border-kumo-line px-3 py-2">
+      <summary className="cursor-pointer text-xs font-medium text-kumo-secondary select-none">
+        Raw text
+      </summary>
+      <pre className="mt-2 max-h-64 overflow-auto rounded-lg bg-kumo-control p-3 font-mono text-xs whitespace-pre-wrap text-kumo-default">
+        {text}
+      </pre>
+    </details>
   );
 }

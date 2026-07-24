@@ -1,5 +1,10 @@
 import { useCallback, useState } from "react";
-import type { CaseEvent, ProcessErrorResponse } from "@shared";
+import {
+  type CaseEvent,
+  MAX_UPLOAD_BYTES,
+  type ProcessErrorResponse,
+  type ProcessResponse
+} from "@shared";
 
 /** Where a document sits in the upload → extraction pipeline. */
 export type DocStatus = "uploaded" | "processing" | "done" | "error";
@@ -31,9 +36,6 @@ export interface UseCaseDocuments {
   dismissRejections: () => void;
 }
 
-/** Upload ceiling. Mirrored server-side in `handleProcess`. */
-const MAX_BYTES = 20 * 1024 * 1024;
-
 /** MIME types we can process. */
 const ALLOWED_TYPES = new Set([
   "application/pdf",
@@ -54,7 +56,7 @@ function isAllowed(file: File): boolean {
 /** A one-line reason the file can't be accepted, or `null` when it's fine. */
 function rejectionReason(file: File): string | null {
   if (!isAllowed(file)) return `${file.name}: only PDF, TXT, PNG or JPG`;
-  if (file.size > MAX_BYTES) return `${file.name}: larger than 20 MB`;
+  if (file.size > MAX_UPLOAD_BYTES) return `${file.name}: larger than 20 MB`;
   return null;
 }
 
@@ -105,10 +107,9 @@ export function useCaseDocuments(): UseCaseDocuments {
           });
           return;
         }
-        // Phase 2 stub echoes `{ filename, size }` — nothing to store yet.
-        // Phases 3–4 will read `rawText`/`events` off this response.
-        await response.json();
-        patchDocument(doc.id, { status: "done" });
+        // Phase 3 returns the extracted text; phase 4 will add `events`.
+        const data = (await response.json()) as ProcessResponse;
+        patchDocument(doc.id, { status: "done", rawText: data.rawText });
       } catch (error) {
         patchDocument(doc.id, {
           status: "error",

@@ -1,21 +1,34 @@
-import type { ProcessErrorResponse, ProcessResponse } from "@shared";
-
-/** Upload ceiling, mirrored on the client in `useCaseDocuments`. */
-const MAX_BYTES = 20 * 1024 * 1024;
+import {
+  classifyDocument,
+  type DocumentKind,
+  MAX_UPLOAD_BYTES,
+  type ProcessErrorResponse,
+  type ProcessResponse
+} from "@shared";
+import { imageToText, pdfToText } from "../lib/ai";
 
 /**
- * `POST /api/process` — process a single uploaded document.
+ * Vision-path ceiling, stricter than `MAX_UPLOAD_BYTES`. `imageToText`
+ * materializes the image as a plain JS number array (~4 bytes per element in
+ * V8), so a near-20 MB image would push the isolate past its fixed 128 MB
+ * memory limit — a termination that bypasses `try/catch`. Reject before
+ * allocating instead.
+ */
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
+/**
+ * `POST /api/process` — extract the text from a single uploaded document.
  *
  * The client posts one file per request (multipart, field `file`) so each
- * upload carries its own status and the 20 MB limit applies per call. Phase 2
- * is a stub: it validates the upload and echoes `{ filename, size }`, which is
- * enough to prove `run_worker_first` routes `/api/*` to the Worker. Phases 3–4
- * replace the body with real text and event extraction (using `env.AI`)
- * without changing this request/response contract.
+ * upload carries its own status and the 20 MB limit applies per call. This runs
+ * the phase 3 text step — `toMarkdown()` for PDFs, the vision model for images,
+ * `file.text()` for plain text — and returns `{ filename, rawText }`. Any
+ * extraction failure comes back as a 4xx/5xx error envelope; the request never
+ * throws. Phase 4 adds the structured `events` derived from `rawText`.
  */
 export async function handleProcess(
   request: Request,
-  _env: Env
+  env: Env
 ): Promise<Response> {
   let form: FormData;
   try {
@@ -28,12 +41,49 @@ export async function handleProcess(
   if (!(file instanceof File)) {
     return errorResponse("No file was provided.", 400);
   }
-  if (file.size > MAX_BYTES) {
+  if (file.size > MAX_UPLOAD_BYTES) {
     return errorResponse("File is larger than 20 MB.", 413);
   }
 
-  const payload: ProcessResponse = { filename: file.name, size: file.size };
+  const kind = classifyDocument(file);
+  if (kind === "image" && file.size > MAX_IMAGE_BYTES) {
+    return errorResponse("Image is larger than 8 MB.", 413);
+  }
+
+  let rawText: string;
+  try {
+    rawText = await extractText(env, file, kind);
+  } catch (error) {
+    // Surface the binding's message but keep the request alive.
+    const message =
+      error instanceof Error ? error.message : "Text extraction failed.";
+    return errorResponse(message, 502);
+  }
+
+  // A pure image-scan PDF (or a blank file) yields no embedded text; say so
+  // rather than returning an empty preview.
+  if (rawText.trim().length === 0) {
+    return errorResponse("No readable text found in this document.", 422);
+  }
+
+  const payload: ProcessResponse = { filename: file.name, rawText };
   return Response.json(payload);
+}
+
+/** Route a file to the extractor for its kind. */
+function extractText(
+  env: Env,
+  file: File,
+  kind: DocumentKind
+): Promise<string> {
+  switch (kind) {
+    case "pdf":
+      return pdfToText(env, file);
+    case "image":
+      return imageToText(env, file);
+    case "text":
+      return file.text();
+  }
 }
 
 /** JSON error body with a matching HTTP status. */
