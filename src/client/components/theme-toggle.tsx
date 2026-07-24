@@ -29,7 +29,7 @@ export function ThemeToggle() {
       shape="square"
       icon={dark ? <SunIcon size={16} /> : <MoonIcon size={16} />}
       onClick={toggle}
-      aria-label="Toggle theme"
+      aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
     />
   );
 }
