@@ -18,7 +18,8 @@
     "types:check": "wrangler types --check",
     "format": "prettier --write .",
     "lint": "eslint .",
-    "check": "npm run types:check && prettier --check . && eslint . && tsc"
+    "check": "npm run types:check && prettier --check . && eslint . && tsc",
+    "prepare": "husky"
   },
   "dependencies": {
     "@cloudflare/ai-chat": "^0.10.0",
@@ -47,6 +48,7 @@
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.7.0",
+    "husky": "^9.1.7",
     "prettier": "^3.9.6",
     "tailwindcss": "^4.3.1",
     "typescript": "^6.0.3",
