@@ -225,6 +225,7 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [showDebug, setShowDebug] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const attachmentsRef = useRef<Attachment[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -350,6 +351,18 @@ export default function Chat() {
       textareaRef.current.focus();
     }
   }, [isStreaming]);
+
+  // Mirror attachments into a ref so unmount cleanup can see the latest set
+  useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
+
+  // Release any previews still held when navigating away from the page
+  useEffect(() => {
+    return () => {
+      for (const att of attachmentsRef.current) URL.revokeObjectURL(att.preview);
+    };
+  }, []);
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const images = Array.from(files).filter((f) => f.type.startsWith("image/"));
