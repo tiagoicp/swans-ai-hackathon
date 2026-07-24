@@ -41,7 +41,11 @@ Try these prompts to see the different features:
 src/
   client/                 # runs in the browser
     main.tsx              # React entry point
-    app.tsx               # Chat UI built with Kumo components
+    app.tsx               # router shell — maps routes to pages
+    pages/                # one file per route
+      home.tsx            # /
+      chat.tsx            # /chat — chat UI built with Kumo components
+      actions.tsx         # /actions
     styles.css            # Tailwind + Kumo styles
   server/                 # runs on Cloudflare (Worker + Durable Objects)
     index.ts              # Worker entry point — routes requests, exports agents
