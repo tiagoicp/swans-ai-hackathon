@@ -1,9 +1,10 @@
-import { Suspense } from "react";
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router";
 import { Toasty } from "@cloudflare/kumo/components/toast";
-import Home from "./pages/home";
-import Chat from "./pages/chat";
-import Action from "./pages/action";
+
+const Home = lazy(() => import("./pages/home"));
+const Chat = lazy(() => import("./pages/chat"));
+const Action = lazy(() => import("./pages/action"));
 
 export default function App() {
   return (
