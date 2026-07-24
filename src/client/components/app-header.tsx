@@ -20,7 +20,7 @@ export function AppHeader({
   return (
     <header className="px-5 py-4 bg-kumo-base border-b border-kumo-line">
       <div
-        className={`${contentClassName} mx-auto flex items-center justify-between gap-3`}
+        className={`${contentClassName} mx-auto flex flex-wrap items-center justify-between gap-3`}
       >
         <div className="flex items-center gap-3">
           <Link
@@ -31,7 +31,7 @@ export function AppHeader({
           </Link>
           {badge}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
           {children}
           <ThemeToggle />
         </div>
