@@ -160,7 +160,7 @@ async executeTask(description: string, task: Schedule<string>) {
 
 ### Remove scheduling
 
-If you don't need scheduling, remove `scheduleTask`, `getScheduledTasks`, and `cancelScheduledTask` from `agents/chat/tools.ts`, the `executeTask` method from `agents/chat/agent.ts`, the `ScheduledTaskEvent` type from `shared/index.ts`, and the schedule-related imports (`getSchedulePrompt`, `scheduleSchema`, `Schedule`).
+If you don't need scheduling, remove `scheduleTask`, `getScheduledTasks`, and `cancelScheduledTask` from `agents/chat/tools.ts`; remove `executeTask` and the `Schedule` import from `agents/chat/agent.ts`; remove `ScheduledTaskEvent` and `isScheduledTaskEvent` from `shared/index.ts`; remove the scheduled-task import and `onMessage` handling from `client/pages/chat.tsx`; and remove `getSchedulePrompt` plus its interpolation from `agents/chat/prompts.ts`.
 
 ### Add state beyond chat messages
 
