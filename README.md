@@ -39,11 +39,29 @@ Try these prompts to see the different features:
 
 ```
 src/
-  server.ts    # Chat agent with tools and scheduling
-  app.tsx      # Chat UI built with Kumo components
-  client.tsx   # React entry point
-  styles.css   # Tailwind + Kumo styles
+  client/                 # runs in the browser
+    main.tsx              # React entry point
+    app.tsx               # Chat UI built with Kumo components
+    styles.css            # Tailwind + Kumo styles
+  server/                 # runs on Cloudflare (Worker + Durable Objects)
+    index.ts              # Worker entry point — routes requests, exports agents
+    agents/
+      chat/               # everything about the chat agent lives here
+        agent.ts          # the ChatAgent class, model choice
+        prompts.ts        # system prompt
+        tools.ts          # tool definitions
+  shared/
+    index.ts              # types and constants both sides agree on
 ```
+
+Imports use path aliases: `@shared`, `@server/*`, and `@client/*` (declared in
+`tsconfig.json` and mirrored in `vite.config.ts`).
+
+### Adding a second agent
+
+Create a sibling folder under `src/server/agents/`, export its class from
+`src/server/index.ts`, then add a Durable Object binding and a migration entry in
+`wrangler.jsonc`.
 
 ## What's included
 
@@ -64,27 +82,30 @@ Update the name in `package.json` and `wrangler.jsonc` — the `name` in `wrangl
 
 ### Change the system prompt
 
-Edit the `system` string in `server.ts` to give your agent a different personality or focus area. This is the most impactful single change you can make.
+Edit `buildSystemPrompt()` in `src/server/agents/chat/prompts.ts` to give your agent a different personality or focus area. This is the most impactful single change you can make.
 
 ### Replace the demo tools with real ones
 
 The starter ships with demo tools (`getWeather` returns random data, `calculate` does basic arithmetic). Replace them with real implementations:
 
 ```ts
-// In server.ts, replace a demo tool with a real API call:
-getWeather: tool({
+// In agents/chat/tools.ts, replace a demo tool with a real API call:
+const getWeather = tool({
   description: "Get the current weather for a city",
   inputSchema: z.object({ city: z.string() }),
   execute: async ({ city }) => {
     const res = await fetch(`https://api.weather.example/${city}`);
     return res.json();
   }
-}),
+});
 ```
 
 ### Add your own tools
 
-Add new tools to the `tools` object in `server.ts`. There are three patterns:
+Add new tools to the object returned by `createTools()` in `src/server/agents/chat/tools.ts`.
+Tools that need nothing from the agent can be module-level constants; tools that use agent
+state (like scheduling) are built inside the factory, which receives the agent. There are
+three patterns:
 
 ```ts
 // Auto-execute: runs on the server, no user interaction
@@ -94,8 +115,9 @@ myTool: tool({
   execute: async (input) => { /* return result */ }
 }),
 
-// Client-side: no execute function, browser provides the result
-// Handle it in app.tsx via the onToolCall callback
+// Client-side: no execute function, browser provides the result.
+// Export the name from src/shared/index.ts (like CLIENT_TOOL_TIMEZONE) so the
+// onToolCall handler in app.tsx matches on the same constant, not a copy.
 browserTool: tool({
   description: "...",
   inputSchema: z.object({ /* ... */ })
@@ -119,10 +141,14 @@ async executeTask(description: string, task: Schedule<string>) {
   // Do the actual work
   await sendEmail({ to: "user@example.com", subject: description });
 
-  // Notify connected clients
-  this.broadcast(
-    JSON.stringify({ type: "scheduled-task", description, timestamp: new Date().toISOString() })
-  );
+  // Notify connected clients. ScheduledTaskEvent comes from src/shared, so the
+  // client's isScheduledTaskEvent() guard stays in sync with what's sent here.
+  const event: ScheduledTaskEvent = {
+    type: "scheduled-task",
+    description,
+    timestamp: new Date().toISOString()
+  };
+  this.broadcast(JSON.stringify(event));
 }
 ```
 
@@ -130,7 +156,7 @@ async executeTask(description: string, task: Schedule<string>) {
 
 ### Remove scheduling
 
-If you don't need scheduling, remove `scheduleTask`, `getScheduledTasks`, and `cancelScheduledTask` from the tools object, the `executeTask` method, and the schedule-related imports (`getSchedulePrompt`, `scheduleSchema`, `Schedule`, `generateId`).
+If you don't need scheduling, remove `scheduleTask`, `getScheduledTasks`, and `cancelScheduledTask` from `agents/chat/tools.ts`, the `executeTask` method from `agents/chat/agent.ts`, the `ScheduledTaskEvent` type from `shared/index.ts`, and the schedule-related imports (`getSchedulePrompt`, `scheduleSchema`, `Schedule`).
 
 ### Add state beyond chat messages
 
@@ -167,7 +193,7 @@ npm install @ai-sdk/openai
 ```
 
 ```ts
-// In server.ts, replace the model:
+// In agents/chat/agent.ts, replace MODEL_ID and the model call:
 import { openai } from "@ai-sdk/openai";
 
 // Inside onChatMessage:

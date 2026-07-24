@@ -2,7 +2,8 @@ import { Suspense, useCallback, useState, useEffect, useRef } from "react";
 import { useAgent } from "agents/react";
 import { useAgentChat } from "@cloudflare/ai-chat/react";
 import { getToolName, isToolUIPart, type UIMessage } from "ai";
-import type { ChatAgent } from "./server";
+import { CLIENT_TOOL_TIMEZONE, isScheduledTaskEvent } from "@shared";
+import type { ChatAgent } from "@server/agents/chat";
 import {
   Badge,
   Button,
@@ -237,8 +238,8 @@ function Chat() {
     onMessage: useCallback(
       (message: MessageEvent) => {
         try {
-          const data = JSON.parse(String(message.data));
-          if (data.type === "scheduled-task") {
+          const data: unknown = JSON.parse(String(message.data));
+          if (isScheduledTaskEvent(data)) {
             toasts.add({
               title: "Scheduled task completed",
               description: data.description,
@@ -266,7 +267,7 @@ function Chat() {
     onToolCall: async (event) => {
       if (
         "addToolOutput" in event &&
-        event.toolCall.toolName === "getUserTimezone"
+        event.toolCall.toolName === CLIENT_TOOL_TIMEZONE
       ) {
         event.addToolOutput({
           toolCallId: event.toolCall.toolCallId,

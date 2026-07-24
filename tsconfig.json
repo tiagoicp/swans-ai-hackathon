@@ -4,6 +4,12 @@
     // Replaces the `agents/tsconfig` preset's array wholesale, so `node` and
     // `vite/client` have to be re-listed. Runtime types now come from the
     // wrangler-generated file instead of `@cloudflare/workers-types`.
-    "types": ["node", "vite/client", "./worker-configuration.d.ts"]
+    "types": ["node", "vite/client", "./worker-configuration.d.ts"],
+    // Mirrored by `resolve.alias` in vite.config.ts — keep the two in sync.
+    "paths": {
+      "@shared": ["./src/shared/index.ts"],
+      "@server/*": ["./src/server/*"],
+      "@client/*": ["./src/client/*"]
+    }
   }
 }
