@@ -12,6 +12,13 @@
  */
 export const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
 
+/**
+ * Text → structured events. The strongest model on the Workers AI JSON Mode
+ * support list, and the fp8-fast variant keeps demo latency down. Used by
+ * `extract-events.ts` with `response_format: { type: "json_schema" }`.
+ */
+export const EXTRACTION_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+
 /** Instruction for the vision transcription step. */
 const TRANSCRIBE_PROMPT =
   "Transcribe the full text content of this document image. " +

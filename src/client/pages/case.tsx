@@ -12,12 +12,19 @@ const COLUMN = "max-w-3xl";
  * The Case Documents workspace: upload medical records and bills, let Workers
  * AI transcribe and extract the events, then review them in a table.
  *
- * Phase 2 adds upload — drop zone, file list and per-file processing against a
- * stub `/api/process`. Text extraction and the review table land in phases 3–5.
+ * Phase 2 adds upload — drop zone, file list and per-file processing. Phase 3
+ * adds text extraction, phase 4 the structured events (shown raw below for now);
+ * the review table replaces the raw dump in phase 5.
  */
 export default function CasePage() {
-  const { documents, rejections, addFiles, removeDocument, dismissRejections } =
-    useCaseDocuments();
+  const {
+    documents,
+    allEvents,
+    rejections,
+    addFiles,
+    removeDocument,
+    dismissRejections
+  } = useCaseDocuments();
 
   return (
     <div className="min-h-screen bg-kumo-elevated">
@@ -45,6 +52,19 @@ export default function CasePage() {
 
         {documents.length > 0 && (
           <FileList documents={documents} onRemove={removeDocument} />
+        )}
+
+        {allEvents.length > 0 && (
+          <section className="space-y-2">
+            <Text size="sm" variant="secondary" as="p">
+              {allEvents.length} extracted{" "}
+              {allEvents.length === 1 ? "event" : "events"} (raw — the review
+              table lands in phase 5)
+            </Text>
+            <pre className="max-h-96 overflow-auto rounded-xl bg-kumo-control p-4 font-mono text-xs whitespace-pre-wrap text-kumo-default">
+              {JSON.stringify(allEvents, null, 2)}
+            </pre>
+          </section>
         )}
       </main>
     </div>

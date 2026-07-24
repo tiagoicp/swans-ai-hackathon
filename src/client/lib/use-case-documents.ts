@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   type CaseEvent,
   MAX_UPLOAD_BYTES,
@@ -27,6 +27,8 @@ export interface CaseDocument {
 /** What `useCaseDocuments` hands back to the page. */
 export interface UseCaseDocuments {
   documents: CaseDocument[];
+  /** Every processed document's events, merged and sorted by date ascending. */
+  allEvents: CaseEvent[];
   /** Messages for files rejected before they entered the list. */
   rejections: string[];
   /** Validate, accept and start processing every file in the list. */
@@ -107,9 +109,15 @@ export function useCaseDocuments(): UseCaseDocuments {
           });
           return;
         }
-        // Phase 3 returns the extracted text; phase 4 will add `events`.
         const data = (await response.json()) as ProcessResponse;
-        patchDocument(doc.id, { status: "done", rawText: data.rawText });
+        // Text extraction succeeded either way; a set `extractionError` means the
+        // structured step failed, so the row shows an error but keeps its text.
+        patchDocument(doc.id, {
+          status: data.extractionError ? "error" : "done",
+          error: data.extractionError,
+          rawText: data.rawText,
+          events: data.events
+        });
       } catch (error) {
         patchDocument(doc.id, {
           status: "error",
@@ -148,11 +156,31 @@ export function useCaseDocuments(): UseCaseDocuments {
 
   const dismissRejections = useCallback(() => setRejections([]), []);
 
+  // Merge every done document's events into one timeline, sorted by date with
+  // "unknown" dates sinking to the bottom.
+  const allEvents = useMemo(
+    () =>
+      documents
+        .filter((doc) => doc.status === "done")
+        .flatMap((doc) => doc.events ?? [])
+        .sort(byDateAscending),
+    [documents]
+  );
+
   return {
     documents,
+    allEvents,
     rejections,
     addFiles,
     removeDocument,
     dismissRejections
   };
+}
+
+/** Sort by ISO date ascending; the literal `"unknown"` always sorts last. */
+function byDateAscending(a: CaseEvent, b: CaseEvent): number {
+  if (a.date === b.date) return 0;
+  if (a.date === "unknown") return 1;
+  if (b.date === "unknown") return -1;
+  return a.date < b.date ? -1 : 1;
 }

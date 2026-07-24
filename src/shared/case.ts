@@ -52,13 +52,23 @@ export interface CaseEvent {
 /**
  * What `POST /api/process` returns for one successfully processed file.
  *
- * Phase 3 returns the extracted `rawText`; phase 4 adds the structured `events`
- * derived from it, without otherwise changing the contract.
+ * Text extraction is the gate: if it fails the route returns a
+ * `ProcessErrorResponse` instead. Once there's text, the response always
+ * carries it — `events` holds the structured facts derived from `rawText`, and
+ * `extractionError` is set (with `events` empty) when the structured step
+ * failed after its retry but the text is still worth showing.
  */
 export interface ProcessResponse {
   filename: string;
   /** Full text extracted from the document. */
   rawText: string;
+  /** Structured facts derived from `rawText`; empty when extraction failed. */
+  events: CaseEvent[];
+  /**
+   * Set when text extraction succeeded but structured extraction failed after a
+   * retry. `rawText` is still returned so the source can be reviewed by hand.
+   */
+  extractionError?: string;
 }
 
 /** Error envelope returned by `/api/process` for a rejected or failed file. */

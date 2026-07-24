@@ -1,4 +1,5 @@
 import {
+  type CaseEvent,
   classifyDocument,
   type DocumentKind,
   MAX_UPLOAD_BYTES,
@@ -6,6 +7,7 @@ import {
   type ProcessResponse
 } from "@shared";
 import { imageToText, pdfToText } from "../lib/ai";
+import { extractEvents } from "../lib/extract-events";
 
 /**
  * Vision-path ceiling, stricter than `MAX_UPLOAD_BYTES`. `imageToText`
@@ -22,9 +24,11 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
  * The client posts one file per request (multipart, field `file`) so each
  * upload carries its own status and the 20 MB limit applies per call. This runs
  * the phase 3 text step — `toMarkdown()` for PDFs, the vision model for images,
- * `file.text()` for plain text — and returns `{ filename, rawText }`. Any
- * extraction failure comes back as a 4xx/5xx error envelope; the request never
- * throws. Phase 4 adds the structured `events` derived from `rawText`.
+ * `file.text()` for plain text — then extracts structured `events` from that
+ * text and returns `{ filename, rawText, events }`. A text-extraction failure
+ * comes back as a 4xx/5xx error envelope; a structured-extraction failure keeps
+ * the 200 (the text is still useful) but carries an `extractionError` in place
+ * of events. Either way the request never throws.
  */
 export async function handleProcess(
   request: Request,
@@ -66,7 +70,22 @@ export async function handleProcess(
     return errorResponse("No readable text found in this document.", 422);
   }
 
-  const payload: ProcessResponse = { filename: file.name, rawText };
+  // Text is in hand; derive the structured events. A failure here is soft — we
+  // still return the text so it can be reviewed, flagged with `extractionError`.
+  let events: CaseEvent[];
+  try {
+    events = await extractEvents(env, rawText, file.name);
+  } catch {
+    const failure: ProcessResponse = {
+      filename: file.name,
+      rawText,
+      events: [],
+      extractionError: "Could not extract structured events from this document."
+    };
+    return Response.json(failure);
+  }
+
+  const payload: ProcessResponse = { filename: file.name, rawText, events };
   return Response.json(payload);
 }
 
