@@ -13,9 +13,10 @@
  * 2. `src/server/index.ts`: route `POST /api/action` → `WORKFLOW.create(...)`,
  *    returning `{ instanceId }`, and `GET /api/action/:instanceId` →
  *    `instance.status()`.
- * 3. Replace the body of `runAction` below: POST to start, then poll the status
- *    endpoint, mapping the Workflow status (`queued` / `running` / `complete` /
- *    `errored`) onto the `ActionRunState` union. Nothing else has to move.
+ * 3. Replace the body of `runAction` below: POST to start, then poll a backend
+ *    response that maps every Workflow lifecycle state. Because
+ *    `instance.status()` exposes only `status`, `error`, and `output`, preserving
+ *    named step progress requires the backend to persist and return it too.
  */
 
 export type ActionRunState =
