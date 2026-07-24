@@ -108,6 +108,15 @@ function serializeSessionCookie(
   return attrs.join("; ");
 }
 
+/**
+ * Reads and validates the session cookie on any request, returning the identity
+ * or null when logged out. The gate in `index.ts` uses this to protect the
+ * `/api/action*` and `/agents/*` surfaces.
+ */
+export function getSession(request: Request): User | null {
+  return decodeSession(readCookie(request, COOKIE_NAME));
+}
+
 // ── Routing ───────────────────────────────────────────────────────────
 
 /**
@@ -132,7 +141,7 @@ export async function handleAuthRequest(
     if (request.method !== "GET") {
       return json({ error: "Method not allowed" }, 405);
     }
-    const user = decodeSession(readCookie(request, COOKIE_NAME));
+    const user = getSession(request);
     return user ? json(user) : json({ error: "Not signed in" }, 401);
   }
 

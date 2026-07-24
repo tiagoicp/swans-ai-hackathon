@@ -33,7 +33,6 @@ import {
   ImageIcon
 } from "@phosphor-icons/react";
 import { AppHeader } from "@client/components/app-header";
-import { useAuth } from "@client/lib/auth";
 
 // ── Attachment helpers ────────────────────────────────────────────────
 
@@ -200,13 +199,12 @@ export default function Chat() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toasts = useKumoToastManager();
-  // RequireAuth guarantees a user on this route; the userId names the agent room
-  // so each user gets an isolated ChatAgent instance (separate chat history).
-  const { user } = useAuth();
 
   const agent = useAgent<ChatAgent>({
     agent: "ChatAgent",
-    name: user!.userId,
+    // Placeholder room: the Worker rewrites this to the signed-in user's id, so
+    // the browser never picks whose chat it opens. See `scopeAgentToUser`.
+    name: "me",
     onOpen: useCallback(() => setConnected(true), []),
     onClose: useCallback(() => setConnected(false), []),
     onError: useCallback(
