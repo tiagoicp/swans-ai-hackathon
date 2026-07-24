@@ -45,7 +45,7 @@ src/
     pages/                # one file per route
       home.tsx            # /
       chat.tsx            # /chat — chat UI built with Kumo components
-      actions.tsx         # /actions
+      action.tsx          # /action
     styles.css            # Tailwind + Kumo styles
   server/                 # runs on Cloudflare (Worker + Durable Objects)
     index.ts              # Worker entry point — routes requests, exports agents
